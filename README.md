@@ -52,9 +52,9 @@ In this toolbox, we widen the machine learning spectrum, by offering multiple pl
 * **High stability**, so performance does not depend on threshold selection
 * **High generability**, so performance remains good on very different contexts
 
-This respository contains the best 5 `model`s from each of these 5 `architecture`s. These `model`s are already trained using mice data, and can be found in the [optimized_models/](https://github.com/PridaLab/rippl-AI/blob/main/optimized_models/) folder. 
+This respository contains the best five `model`s from each of these five `architecture`s. These `model`s are already trained using mice data, and can be found in the [optimized_models/](https://github.com/PridaLab/rippl-AI/blob/main/optimized_models/) folder. 
 
-The [rippl_AI.py](https://github.com/PridaLab/rippl-AI/blob/main/rippl_AI.py) python package contains all the necessary functions to easily use any `model` to detect SWRs. Additionally, we also provide some auxiliary functions in the [aux.py](https://github.com/PridaLab/rippl-AI/blob/main/aux.py) script, that contains useful code to process LFP and evaluate performance detection.
+The [rippl_AI](https://github.com/PridaLab/rippl-AI/blob/main/rippl_AI.py) python module contains all the necessary functions to easily use any `model` to detect SWRs. Additionally, we also provide some auxiliary functions in the [aux](https://github.com/PridaLab/rippl-AI/blob/main/aux.py) module, that contains useful code to process LFP and evaluate performance detection.
 
 Moreover, several usage examples of all functions can be found in the [examples_detection/](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection/) folder.
 
