@@ -86,9 +86,7 @@ The python function `get_intervals()` of the `rippl_AI` module takes the output 
 
 	- `get_intervals(SWR_prob)`: displays a histogram of all SWR probability values, and a draggable threshold to set a threshold based on the values of this particular session. When 'Done' button is pressed, the GUI takes the value of the draggable as the threshold.
 
-	- `get_intervals(SWR_prob, 'LFP', data, 'fs', fs, 'win_size', win_size)`: if `data` is also added as an input, then the GUI adds up to 50 examples of SWR detections. If the 'Update' button is pressed, another 50 random detections are shown. When 'Done' button is pressed, the GUI takes the value of the draggable as the threshold. Sampling frequency `fs` (in Hz) and window size `win_size` (in seconds) can be used to set the window length of the displayed examples. It automatically discards false positives due to drifts, but if you want to set it off, you can set `discard_drift` to `false`. By default, it discards noises whose mean LFP is above `std_discard` times the standard deviation, which by default is 1SD. This parameter can also be changed.
-	
-	![Detection method](https://github.com/PridaLab/rippl-AI/blob/main/figures/threshold-selection.png)
+	- `get_intervals(SWR_prob, LFP=LFP, sf=sf, win_size=win_size)`: if `LFP` is also added as an input, then the GUI adds up to 50 examples of SWR detections. If the 'Update' button is pressed, another 50 random detections are shown. When 'Done' button is pressed, the GUI takes the value of the draggable as the threshold. Sampling frequency `sf` (in Hz) and window size `win_size` (in seconds) can be used to set the window length of the displayed examples. It automatically discards false positives due to drifts, but if you want to set it off, you can set `discard_drift` to `false`. By default, it discards noises whose mean LFP is above `std_discard` times the standard deviation, which by default is 1SD. This parameter can also be changed. ![Detection method](https://github.com/PridaLab/rippl-AI/blob/main/figures/threshold-selection.png)
 
 	- `get_intervals(SWR_prob, 'threshold', threshold)`: if a threshold is given, then it takes that threshold without displaying any GUI.
 
@@ -97,7 +95,7 @@ The python function `get_intervals()` of the `rippl_AI` module takes the output 
 * Additional optional inputs are: `handle_overlap` and `verbose`. In order to handle prediction of overlapping windows, use `handle_overlap` to choose to do the 'mean' (by default) or 'max'. `verbose` prints the description of internal processes (false by default).
 
 * **Getting the intervals**
-	Once the threshold is set, it automatically finds the intervals where `SWR_prob` is over that threshold. The output of `get_intervals()` is a `n_ripples` x 2 array of beginnings and ends. If `fs` has been given, the output is in seconds; if it's not given, then the output is in timestamps.
+	Once the threshold is set, it automatically finds the intervals where `SWR_prob` is over that threshold. The output of `get_intervals()` is a `n_ripples` x 2 array of beginnings and ends. If `sf` has been given, the output is in seconds; if it's not given, then the output is in timestamps.
 
 
 
@@ -139,12 +137,15 @@ The python function `get_performance()` of the `aux` module...
 
 
 
-
-
 ## Re-training
 
 
+
+
 ## Exploration
+
+
+
 
 
 # Enviroment setup
