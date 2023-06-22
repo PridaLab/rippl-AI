@@ -1,6 +1,6 @@
 # rippl-AI
 
-# Description
+# DESCRIPTION
 
 __rippl-AI__ is an open toolbox of several artificial intelligence (AI) approaches for sharp-wave ripple (SWR) detection. In particular, this toolbox offers multiple successful plug-and-play models from 5 AI architectures (1D-CNN, 2D-CNN, LSTM, SVM and XGBoost) that are ready to use to detect SWRs in hippocampal recordings. Moreover, there is an additional package that allows easy re-training, so that models are updated to better detect particular features of your own recordings. 
 
@@ -33,3 +33,15 @@ In this project, we take advantage of supervised machine learning approaches to 
 ![Support Vector Machine](https://github.com/PridaLab/rippl-AI/blob/main/figures/SVM.png)
 
 
+
+# THIS REPOSITORY
+
+This toolbox contains three main blocks: **detection**, **re-training** and **exploration**. These three packages can be used jointly or separatedly. We will proceed to describe each of their purpose and usage.
+
+## Detection
+
+![Detection method](https://github.com/PridaLab/rippl-AI/blob/main/figures/detection-method.png)
+
+## Re-training
+
+## Exploration
