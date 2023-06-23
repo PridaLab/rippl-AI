@@ -107,13 +107,13 @@ The python function `get_intervals()` of the `rippl_AI` module takes the output 
     - `win_size`: Length of the displayed ripples in miliseconds (`integer`). By default 100 ms.
     - `sf`: Sampling frequency (Hz) of `LFP_norm` (`integer`). By default 1250 Hz (i.e., sampling frequency of `LFP_norm`).
 
-    There are4 possible use cases, depending on which parameter combination is used when calling the function.
-    - (`SWR_prob`): a histogram of the output is displayed, you drag a vertical bar to selecct your `threshold`
-    - (`SWR_prob`,`threshold`): no GUI is displayed, the predictions are gererated automatically
-    - (`SWR_prob`,`LFP_norm`): some examples of detected events are displayed next to the histogram
-    - (`SWR_prob`,`LFP_norm`,`threshold`): same case as 3, but the initial location of the bar is `threshold`
+    There are 4 possible use cases, depending on which parameter combination is used when calling the function.
+    1. `rippl_AI.get_intervals(SWR_prob)`: a histogram of the output is displayed, you drag a vertical bar to selecct your `threshold`
+    2. `rippl_AI.get_intervals(SWR_prob,threshold)`: no GUI is displayed, the predictions are gererated automatically
+    3. `rippl_AI.get_intervals(SWR_prob,LFP_norm)`: some examples of detected events are displayed next to the histogram
+    4. `rippl_AI.get_intervals(SWR_prob,LFP_norm,threshold)`: same case as 3, but the initial location of the bar is `threshold`
 
-    Two usage examples:
+    Examples:
 	- `get_intervals(SWR_prob, LFP_norm=LFP_norm, sf=sf, win_size=win_size)`: as `LFP_norm` is also added as an input, then the GUI adds up to 50 examples of SWR detections. If the 'Update' button is pressed, another 50 random detections are shown. When 'Save' button is pressed, the GUI takes the value of the draggable as the threshold. Sampling frequency `sf` (in Hz) and window size `win_size` (in milliseconds) can be used to set the window length of the displayed examples. It automatically discards false positives due to drifts, but if you want to set it off, you can set `discard_drift` to `false`. By default, it discards noises whose mean LFP is above `std_discard` times the standard deviation, which by default is 1SD. This parameter can also be changed. ![Detection method](https://github.com/PridaLab/rippl-AI/blob/main/figures/threshold-selection.png)
 	- `get_intervals(SWR_prob, 'threshold', threshold)`: if a threshold is given, then it takes that threshold without displaying any GUI.
 
