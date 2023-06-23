@@ -83,6 +83,7 @@ The `rippl_AI.predict()` input and output variables are:
 		* If you are using a high-density probe, then we recommend to use equi-distant channels from the beginning to the end of the SP. For example, for Neuropixels in mice, a good set of channels would be `pyr_channel` + [-8,-6,-4,-2,0,2,4,6]. 
 		* In the case of linear probes or tetrodes, there are not enough density to cover the SP with 8 channels. For that, interpolation or recorded channels can be done without compromising performance. New artificial interpolated channels will be add to the LFP wherever there is a `-1` in `channels`. For example, if `pyr_channel=11` in your linear probe, so that 10 is in _stratum oriens_ and 12 in _stratum radiatum_, then we could define `channels=[10,-1,-1,11,-1,-1,-1,12]`, where 2nd and 3rd channels will be an interpolation of SO and SP channels, and 5th to 7th an interpolation of SP and SR channels. For tetrodes, organising channels according to their spatial profile is very convenient to assure best performance. These interpolations are done using the function `aux_fcn.interpolate_channels()`.
 		* Several examples of all these usages can be found in the [examples_detection.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection.ipynb) python notebook.
+	- `new_model`: Other re-trained model you want to use for detection. If you have used our re-train function to adapt the optimized models to your own data (see `rippl_AI.retrain()` for more details), you can input the `new_model` here to use that model to predict your events.
 
 * Output:
 	- `SWR_prob`: model output for every sample of the LFP (`np.array`: `n_samples` x 1). It can be interpreted as the confidence or probability of a SWR event, so values close to 0 mean that the `model` is certain that there are not SWRs, and values close to 1 that the model is very sure that there is a SWR hapenning.
@@ -145,21 +146,21 @@ Because these models best performed using a richer spatial profile, all combinat
 	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`).
 	- `channels`: list of channels over which to make interpolations (`np.array` or `list`: 1 x `# channels needed by the model` - 8 in most cases). Interpolated channels will be created in the positions of the `-1` elements of the list. Examples:
 		- Let's say we have only 4 channels, so `LFP` is `n_samples` x 4. We can interpolate to get 8 functional channels. We will interpolate 1 channel between the first two, another one between 2nd and 3rd, and two more interpolated channels between the last two: 
-		```
-		# Define channels
-		channels_interpolation = [0,-1,1,-1,2,-1,-1,3]
+			```
+			# Define channels
+			channels_interpolation = [0,-1,1,-1,2,-1,-1,3]
 
-		# Make interpolation
-		LFP_interpolated = aux_fcn.interpolate_channels(LFP, channels_interpolation)
-		```
+			# Make interpolation
+			LFP_interpolated = aux_fcn.interpolate_channels(LFP, channels_interpolation)
+			```
 		- Let's say we have 8 channels, but channels 2 and 5 are dead. Then we want to interpolate them to get 8 fuctional channels:
-		```
-		# Define channels
-		channels_interpolation = [0,1,-1,3,4,-1,6,7,8]
+			```
+			# Define channels
+			channels_interpolation = [0,1,-1,3,4,-1,6,7,8]
 
-		# Make interpolation
-		LFP_interpolated = aux_fcn.interpolate_channels(LFP, channels_interpolation)
-		```
+			# Make interpolation
+			LFP_interpolated = aux_fcn.interpolate_channels(LFP, channels_interpolation)
+			```
 		- More usage examples can be found in the [examples_detection.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection.ipynb) python notebook.
 
 * Output:
@@ -195,8 +196,31 @@ Therefore, this function can be used only when some ground truth (i.e. events th
 
 ## Re-training
 
-Usage examples can be found in the [examples_retraining.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_retraining.ipynb) python notebook.
+Here, we provide a unique toolbox to easily re-train `model`s and adapt them to new datasets. These models have been selected because their architectural parameters are best fit to look for electrophysiological high-frequency events. So both if you are interested in finding SWRs or other electrophysiological events, these toolbox offers you the possility to skip all the parametric search and parameter tuning just by running this scripts. The advantages of the re-training module are:
+* Avoid starting from scratch in making **your own feature-based detection algorithm**
+* Easily plug-and-play to re-train already tested algorithms
+* **Extend detection to other events** such as pathological fast ripples or interictal spikes
+* **Extend detection to human** recordings
 
+
+### rippl_AI.retrain()
+
+The python function `rippl_AI.retrain(LFP, sf, true_events, arch='1DCNN')` of the `rippl_AI` module re-trains the best model of a given `architecture` to re-learn the optimal features to detect the new ground truth events annotated in `true_events`.
+
+* Mandatory inputs:
+	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`).
+	- `sf`: sampling frequency (in Hz).
+	- `channels`: channels to use. For more details, see `channels` of `rippl_AI.predict()` or `aux_fcn.interpolate_channels()`.
+	- `true_events`: ground truth events (`np.array`: `n_groundtruth` x 2). Same format as `predictions`
+
+* Optional inputs:
+	- `arch`: Name of the AI architecture to use (`string`). It can be: `CNN1D`, `CNN2D`, `LSTM`, `SVM` or `XGBOOST`.
+
+* Output:
+	- `new_model`: retrained AI model, based on the `architecture` specified in the input parameter. This model can be then used to predict your own events in your data, by inputing it in `rippl_AI.predict()`.
+
+
+Usage examples can be found in the [examples_retraining.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_retraining.ipynb) python notebook.
 
 
 ## Exploration
