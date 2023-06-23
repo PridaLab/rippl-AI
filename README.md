@@ -8,7 +8,7 @@ __rippl-AI__ is an open toolbox of several artificial intelligence (AI) approach
 
 Sharp-wave ripples (SWRs) are transient fast oscillatory events (100-250Hz) of around 50ms that appear in the hippocampus, that had been associated with memory consolidation. During SWRs, sequential firing of ensembles of neurons are _replayed_, reactivating memory traces of previously encoded experiences. SWR-related interventions can influence hippocampal-dependent cognitive function, making their detection crucial to understand underlying mechanisms. However, existing SWR identification tools mostly rely on using spectral methods, which remain suboptimal.
 
-Because of the micro-circuit properties of the hippocampus, CA1 SWRs share a common profile, consisting of a _ripple_ in the _stratum pyramidale_, and a _sharp-wave_ deflection in _stratum radiatum_ that reflects the large excitatory input that comes from CA3. Yet, SWRs can extremely differ depending on the underlying reactivated circuit. This continuous recording shows this variability:
+Because of the micro-circuit properties of the hippocampus, CA1 SWRs share a common profile, consisting of a _ripple_ in the _stratum pyramidale_ (SP), and a _sharp-wave_ deflection in _stratum radiatum_ that reflects the large excitatory input that comes from CA3. Yet, SWRs can extremely differ depending on the underlying reactivated circuit. This continuous recording shows this variability:
 
 ![Example of several SWRs](https://github.com/PridaLab/rippl-AI/blob/main/figures/ripple-variability.png)
 
@@ -64,17 +64,29 @@ Moreover, several usage examples of all functions can be found in the [examples_
 
 The python function `predict()` of the `rippl_AI` module computes the SWR probability for a give LFP. 
 
-In the figure below, you can see an example of a high-density LFP recording (top) with manually labeled data (gray). The objective of these `model`s is to generate an output signal that most similarly matches the manually labeled signal. The output of the uploaded optimized models can be seen in the bottom, where outputs go from 0 (low probability of SWR) to 1 (high probability of SWR).
+In the figure below, you can see an example of a high-density LFP recording (top) with manually labeled data (gray). The objective of these `model`s is to generate an output signal that most similarly matches the manually labeled signal. The output of the uploaded optimized models can be seen in the bottom, where outputs go from 0 (low probability of SWR) to 1 (high probability of SWR) for each LFP sample.
 
 ![Detection method](https://github.com/PridaLab/rippl-AI/blob/main/figures/output-probabilities.png)
 
 The `rippl_AI.predict()` input and output variables are:
 
-* Mandatory inputs:
+* Mandatory inputs: 
+	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`). Although there are no restrictions in `n_channels`, some considerations should be taken into account (see `channels`). Data does not need to be normalized, because it will be internally be z-scored (see `aux.process_LFP()`). 
+	- `sf`: sampling frequency (in Hz).
 
 * Optional inputs:
+	- `arch`: 
+	- `model_number`: 
+	- `channels`: Channels to be used for detection (`np.array` or `list`: `1` x `8`). This is the most senstive parameter, because models will be looking for specific spatial features over all channels. The two main remarks are:
+		* All models have been trained to look at features in the pyramidal layer (SP), so for them to work at their maximum potential, the selected channels would ideally be centered in the SP, with a postive deflection on the first channels (upper channels) and a negative deflection on the last channels (lower channels). The image above can be used as a visual reference of how to choose channels.
+		* For all combinations of `architectures` and `model_numbers`, `channels` **has to be of size 8**. There is only one exception, for `architecture = 2D-CNN` with `models = {3, 4, 5}`, that needs to have **3 channels**. If you are using a high-density probe, then we recommend to use equi-distant channels from the beginning to the end of the SP. For example, for Neuropixels in mice, a good set of channels would be `pyr_channel` + [-8,-6,-4,-2,0,2,4,6]. However, for linear probes, there are not enough density to cover the SP with 8 channels. For that, interpolations can be made without compromising performance. New artificial interpolated channels will be add to the LFP wherever there is a `-1` in `channels`. For example, if `pyr_channel=11` in your linear probe, so 10 is in _stratum oriens_ and 12 in _stratum radiatum_, then we could define `channels=[10,-1,-1,11,-1,-1,-1,12]`, so that the 2nd and 3rd channels will be an interpolation of SO and SP channels, and 5th to 7th an interpolation of 
+		 See `aux.interpolate_channels` for more details.
+
+		* Several examples of all these usages can be found in the [examples_detection/](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection/) folder.
 
 * Output:
+	- `SWR_prob`: 
+	- `LFP_norm`: 
 
 
 
@@ -91,7 +103,6 @@ The python function `get_intervals()` of the `rippl_AI` module takes the output 
 	- `get_intervals(SWR_prob, LFP=LFP, sf=sf, win_size=win_size)`: if `LFP` is also added as an input, then the GUI adds up to 50 examples of SWR detections. If the 'Update' button is pressed, another 50 random detections are shown. When 'Done' button is pressed, the GUI takes the value of the draggable as the threshold. Sampling frequency `sf` (in Hz) and window size `win_size` (in seconds) can be used to set the window length of the displayed examples. It automatically discards false positives due to drifts, but if you want to set it off, you can set `discard_drift` to `false`. By default, it discards noises whose mean LFP is above `std_discard` times the standard deviation, which by default is 1SD. This parameter can also be changed. ![Detection method](https://github.com/PridaLab/rippl-AI/blob/main/figures/threshold-selection.png)
 
 	- `get_intervals(SWR_prob, 'threshold', threshold)`: if a threshold is given, then it takes that threshold without displaying any GUI.
-
 
 
 * Additional optional inputs are: `handle_overlap` and `verbose`. In order to handle prediction of overlapping windows, use `handle_overlap` to choose to do the 'mean' (by default) or 'max'. `verbose` prints the description of internal processes (false by default).
