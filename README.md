@@ -20,13 +20,13 @@ In this project, we take advantage of supervised machine learning approaches to 
 
 ![Convolutional Neural Networks](https://github.com/PridaLab/rippl-AI/blob/main/figures/CNNs.png)
 
-### Long-Short Term Memory Recurrent Neural Networks (LSTM)
-
-![Long-Short Term Memory Recurrent Neural Networks](https://github.com/PridaLab/rippl-AI/blob/main/figures/LSTM.png)
-
 ### Support Vector Machine (SVM)
 
 ![Support Vector Machine](https://github.com/PridaLab/rippl-AI/blob/main/figures/SVM.png)
+
+### Long-Short Term Memory Recurrent Neural Networks (LSTM)
+
+![Long-Short Term Memory Recurrent Neural Networks](https://github.com/PridaLab/rippl-AI/blob/main/figures/LSTM.png)
 
 ### Extreme-Gradient Boosting (XGBoost)
 
@@ -54,15 +54,15 @@ In this toolbox, we widen the machine learning spectrum, by offering multiple pl
 
 This respository contains the best five `model`s from each of these five `architecture`s. These `model`s are already trained using mice data, and can be found in the [optimized_models/](https://github.com/PridaLab/rippl-AI/blob/main/optimized_models/) folder. 
 
-The [rippl_AI](https://github.com/PridaLab/rippl-AI/blob/main/rippl_AI.py) python module contains all the necessary functions to easily use any `model` to detect SWRs. Additionally, we also provide some auxiliary functions in the [aux](https://github.com/PridaLab/rippl-AI/blob/main/aux.py) module, that contains useful code to process LFP and evaluate performance detection.
+The [rippl_AI](https://github.com/PridaLab/rippl-AI/blob/main/rippl_AI.py) python module contains all the necessary functions to easily use any `model` to detect SWRs. Additionally, we also provide some auxiliary functions in the [aux_fcn](https://github.com/PridaLab/rippl-AI/blob/main/aux_fcn.py) module, that contains useful code to process LFP and evaluate performance detection.
 
-Moreover, several usage examples of all functions can be found in the [examples_detection/](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection/) folder.
+Moreover, several usage examples of all functions can be found in the [examples_detection.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection.ipynb) python notebook.
 
 
 
 ### rippl_AI.predict()
 
-The python function `predict()` of the `rippl_AI` module computes the SWR probability for a give LFP. 
+The python function `predict(LFP, sf, arch='CNN1D', model_number=1, channels=np.arange(8))` of the `rippl_AI` module computes the SWR probability for a give LFP. 
 
 In the figure below, you can see an example of a high-density LFP recording (top) with manually labeled data (gray). The objective of these `model`s is to generate an output signal that most similarly matches the manually labeled signal. The output of the uploaded optimized models can be seen in the bottom, where outputs go from 0 (low probability of SWR) to 1 (high probability of SWR) for each LFP sample.
 
@@ -71,18 +71,18 @@ In the figure below, you can see an example of a high-density LFP recording (top
 The `rippl_AI.predict()` input and output variables are:
 
 * Mandatory inputs: 
-	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`). Although there are no restrictions in `n_channels`, some considerations should be taken into account (see `channels`). Data does not need to be normalized, because it will be internally be z-scored (see `aux.process_LFP()`). 
+	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`). Although there are no restrictions in `n_channels`, some considerations should be taken into account (see `channels`). Data does not need to be normalized, because it will be internally be z-scored (see `aux_fcn.process_LFP()`). 
 	- `sf`: sampling frequency (in Hz).
 
 * Optional inputs:
-	- `arch`: 
-	- `model_number`: 
-	- `channels`: Channels to be used for detection (`np.array` or `list`: `1` x `8`). This is the most senstive parameter, because models will be looking for specific spatial features over all channels. The two main remarks are:
+	- `arch`: Name of the AI architecture to use (`string`). It can be: `CNN1D`, `CNN2D`, `LSTM`, `SVM` or `XGBOOST`.
+	- `model_number`: Number of the model to use (`integer`). There are five different models for each architecture, sorted by performance, being `1` the best, and `5` the last.
+	- `channels`: Channels to be used for detection (`np.array` or `list`: `1` x `8`). This is the most senstive parameter, because models will be looking for specific spatial features over all channels. Counting starts in `0`. The two main remarks are:
 		* All models have been trained to look at features in the pyramidal layer (SP), so for them to work at their maximum potential, the selected channels would ideally be centered in the SP, with a postive deflection on the first channels (upper channels) and a negative deflection on the last channels (lower channels). The image above can be used as a visual reference of how to choose channels.
 		* For all combinations of `architectures` and `model_numbers`, `channels` **has to be of size 8**. There is only one exception, for `architecture = 2D-CNN` with `models = {3, 4, 5}`, that needs to have **3 channels**. 
 		* If you are using a high-density probe, then we recommend to use equi-distant channels from the beginning to the end of the SP. For example, for Neuropixels in mice, a good set of channels would be `pyr_channel` + [-8,-6,-4,-2,0,2,4,6]. 
-		* In the case of linear probes or tetrodes, there are not enough density to cover the SP with 8 channels. For that, interpolation or recorded channels can be done without compromising performance. New artificial interpolated channels will be add to the LFP wherever there is a `-1` in `channels`. For example, if `pyr_channel=11` in your linear probe, so that 10 is in _stratum oriens_ and 12 in _stratum radiatum_, then we could define `channels=[10,-1,-1,11,-1,-1,-1,12]`, where 2nd and 3rd channels will be an interpolation of SO and SP channels, and 5th to 7th an interpolation of SP and SR channels. For tetrodes, organising channels according to their spatial profile is very convenient to assure best performance. These interpolations are done using the function `aux.interpolate_channels()`.
-		* Several examples of all these usages can be found in the [examples_detection/](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection/) folder.
+		* In the case of linear probes or tetrodes, there are not enough density to cover the SP with 8 channels. For that, interpolation or recorded channels can be done without compromising performance. New artificial interpolated channels will be add to the LFP wherever there is a `-1` in `channels`. For example, if `pyr_channel=11` in your linear probe, so that 10 is in _stratum oriens_ and 12 in _stratum radiatum_, then we could define `channels=[10,-1,-1,11,-1,-1,-1,12]`, where 2nd and 3rd channels will be an interpolation of SO and SP channels, and 5th to 7th an interpolation of SP and SR channels. For tetrodes, organising channels according to their spatial profile is very convenient to assure best performance. These interpolations are done using the function `aux_fcn.interpolate_channels()`.
+		* Several examples of all these usages can be found in the [examples_detection.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection.ipynb) python notebook.
 
 * Output:
 	- `SWR_prob`: model output for every sample of the LFP (`np.array`: `n_samples` x 1). It can be interpreted as the confidence or probability of a SWR event, so values close to 0 mean that the `model` is certain that there are not SWRs, and values close to 1 that the model is very sure that there is a SWR hapenning.
@@ -92,7 +92,7 @@ The `rippl_AI.predict()` input and output variables are:
 
 ### rippl_AI.get_intervals()
 
-The python function `get_intervals()` of the `rippl_AI` module takes the output of `rippl_AI.predict()` (i.e. the SWR probability), and identifies SWR beginnings and ends by stablishing a threshold. In the figure below, you can see how the threshold can decisevely determine what events are being detected. For example, lowering the threshold to 0.5 would have result in XGBoost correctly detecting the first SWR, and the 1D-CNN detecting the sharp-wave that has no ripple.
+The python function `get_intervals(SWR_prob, LFP_norm=None, sf=1250, win_size=100, threshold=None, file_path=None)` of the `rippl_AI` module takes the output of `rippl_AI.predict()` (i.e. the SWR probability), and identifies SWR beginnings and ends by stablishing a threshold. In the figure below, you can see how the threshold can decisevely determine what events are being detected. For example, lowering the threshold to 0.5 would have result in XGBoost correctly detecting the first SWR, and the 1D-CNN detecting the sharp-wave that has no ripple.
 
 ![Detection method](https://github.com/PridaLab/rippl-AI/blob/main/figures/detection-method.png)
 
@@ -122,59 +122,86 @@ The python function `get_intervals()` of the `rippl_AI` module takes the output 
 
 
 
-### aux.process_LFP()
+### aux_fcn.process_LFP()
 
-The python function `process_LFP()` of the `aux` module processes the LFP before it is input to the algorithm. It downsamples LFP to 1250 Hz, and normalizes each channel separately by z-scoring them.
-
-* Mandatory inputs:
-
-* Optional inputs:
-
-* Output:
-
-
-### aux.interpolate_channels()
-
-The python function `interpolate_channels()` of the `aux` module allows creating more intermediate channels using interpolation. 
-
-Because these models best performed using a richer spatial profile, they need 8 channels as an input. However, it is possible that some times we cannot get such number of channels in the pyramidal layer, like when using linear probes (only 2 oe 3 channels fit in the pyramidal layer) or tetrodes (there are 4 recording channels).
-
-For this, we developed this interpolation function, that creates new channels between any pair of your recording channels. Using this approach, we can successfully use the already built algorithms with an equally high performance.
+The python function `process_LFP(FP, sf, channels)` of the `aux_fcn` module processes the LFP before it is input to the algorithm. It downsamples LFP to 1250 Hz, and normalizes each channel separately by z-scoring them.
 
 * Mandatory inputs:
-
-* Optional inputs:
+	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`).
+	- `sf`: sampling frequency (in Hz).
+	- `channels`: channel to which compute the undersampling and z-score normalization. Counting starts in `0`. If `channels` contains any `-1`, interpolation will be also applied. See `channels` of rippl_AI.predict(), or `aux_fcn.interpolate_channels()` for more information.
 
 * Output:
+	- `LFP_norm`: normalized LFP (`np.array`: `n_samples` x `len(channels)`). It is undersampled to 1250Hz, z-scored, and transformed to used the channels specified in `channels`.
 
-Usage examples can be found in the [examples_detection/](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection/) folder.
+
+### aux_fcn.interpolate_channels()
+
+The python function `interpolate_channels(LFP, channels)` of the `aux_fcn` module allows creating more intermediate channels using interpolation. 
+
+Because these models best performed using a richer spatial profile, all combinations of `architectures` and `model_numbers`  **work with 8 channels**. There is only one exception, for `architecture = 2D-CNN` with `models = {3, 4, 5}`, that needs to have **3 channels**. However, some times it's not possible to get such number of channels in the pyramidal layer, like when using linear probes (only 2 oe 3 channels fit in the pyramidal layer) or tetrodes (there are 4 recording channels). For this, we developed this interpolation function, that creates new channels between any pair of your recording channels. Using this approach, we can successfully use the already built algorithms with an equally high performance.
+
+* Mandatory inputs:
+	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`).
+	- `channels`: list of channels over which to make interpolations (`np.array` or `list`: 1 x `# channels needed by the model` - 8 in most cases). Interpolated channels will be created in the positions of the `-1` elements of the list. Examples:
+		- Let's say we have only 4 channels, so `LFP` is `n_samples` x 4. We can interpolate to get 8 functional channels. We will interpolate 1 channel between the first two, another one between 2nd and 3rd, and two more interpolated channels between the last two: 
+		```
+		# Define channels
+		channels_interpolation = [0,-1,1,-1,2,-1,-1,3]
+
+		# Make interpolation
+		LFP_interpolated = aux_fcn.interpolate_channels(LFP, channels_interpolation)
+		```
+		- Let's say we have 8 channels, but channels 2 and 5 are dead. Then we want to interpolate them to get 8 fuctional channels:
+		```
+		# Define channels
+		channels_interpolation = [0,1,-1,3,4,-1,6,7,8]
+
+		# Make interpolation
+		LFP_interpolated = aux_fcn.interpolate_channels(LFP, channels_interpolation)
+		```
+		- More usage examples can be found in the [examples_detection.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection.ipynb) python notebook.
+
+* Output:
+	- LFP_interpolated: Interpolated LFP (`np.array`: `n_samples` x `len(channels)`).
 
 
-### aux.get_performance()
+### aux_fcn.get_performance()
 
-The python function `get_performance()` of the `aux` module computes several performance metrics:
+The python function `get_performance(predictions, true_events, threshold=0, exclude_matched_trues=False, verbose=True)` of the `aux_fcn` module computes several performance metrics:
 * precision: also called *positive predictive value* is computed as (# good detections) / (# all detections)
 * recall: also called *sensitivity* is computed as (# good detections) / (# all ground truth events)
 * F1: computed as the harmonic mean between precision and recall, is a conservative and fair measure of performance. If any of precision or recall is low, F1 will be low. F1=1 only happens if detected events exactly match ground truth events.
 
-Therefore, this function can be used only when some ground truth is given.
+Therefore, this function can be used only when some ground truth (i.e. events that we are considering the _truth_) is given. In order to check if a true event has been predicted, it computes the **Intersection over Union** (IoU). This index metric measures how much two intervals *intersect* with respect of the *union* of their size. So if `pred_events = [[2,3], [6,7]]` and `true_events = [[2,4]],[8,9]]`, then we would expect that the `IoU ( pred_events[0], true_events[0] ) > 0`, while the rest will be zero. 
 
 * Mandatory inputs:
+	- `predictions`: detected events (`np.array`: `n_predictions` x 2). First column are beginnings of the events (in seconds), second columns are ends of events (in seconds). This should be the output of `rippl_AI.get_intervals()`.
+	- `true_events`: ground truth events (`np.array`: `n_groundtruth` x 2). Same format as `predictions`
 
 * Optional inputs:
+	- `threshold`: Threshold for the IoU (`bool`). By default is 0, so any intersection will be consider a match.
+	- `exclude_matched_trues`: Boolean to determine if true events that had been already match to one prediction can be considered for other predicted events (`bool`). By default is `False`, so one true can match many predictions.
+	- `verbose`: Print results (`bool`).
 
 * Output:
-
-
+	- `precision`: Metric indicating the percentage of correct predictions out of total predictions
+	- `recall`: Metric indicating the percentage of true events predicted correctly
+	- `F1`: Metric with a measure that combines precision and recall.
+	- `TP`: True Positives (`np.array`: `n_predictions` x 1). It indicates which `pred_event` **detected** a `true_event`, so `True` are true positives, and `False` are false negatives.
+	- `FN`: False Negatives (`np.array`: `n_groundtruth` x 1). It indicates which `true_event` was **not detected** by `pred_event`, so `True` are false negatives, and `False` are true positives.
+	- `IOU`: IoU matrix (`np.array`: `n_predictions` x `n_groundtruth`). This can be used to know the matching indexes between `pred_event` and `true_event`.
 
 
 ## Re-training
 
+Usage examples can be found in the [examples_retraining.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_retraining.ipynb) python notebook.
 
 
 
 ## Exploration
 
+Usage examples can be found in the [examples_exploration.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_exploration.ipynb) python notebook.
 
 
 
