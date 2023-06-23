@@ -174,7 +174,7 @@ The python function `get_performance(predictions, true_events, threshold=0, excl
 * recall: also called *sensitivity* is computed as (# good detections) / (# all ground truth events)
 * F1: computed as the harmonic mean between precision and recall, is a conservative and fair measure of performance. If any of precision or recall is low, F1 will be low. F1=1 only happens if detected events exactly match ground truth events.
 
-Therefore, this function can be used only when some ground truth (i.e. events that we are considering the _truth_) is given. In order to check if a true event has been predicted, it computes the **Intersection over Union** (IoU). This index metric measures how much two intervals *intersect* with respect of the *union* of their size. So if `pred_events = [[2,3], [6,7]]` and `true_events = [[2,4]],[8,9]]`, then we would expect that the `IoU ( pred_events[0], true_events[0] ) > 0`, while the rest will be zero. 
+Therefore, this function can be used only when some ground truth (i.e. events that we are considering the _truth_) is given. In order to check if a true event has been predicted, it computes the **Intersection over Union** (IoU). This index metric measures how much two intervals *intersect* with respect of the *union* of their size. So if `pred_events = [[2,3], [6,7]]` and `true_events = [[2,4]],[8,9]]`, then we would expect that the `IoU(pred_events[0], true_events[0]) > 0`, while the rest will be zero. 
 
 * Mandatory inputs:
 	- `predictions`: detected events (`np.array`: `n_predictions` x 2). First column are beginnings of the events (in seconds), second columns are ends of events (in seconds). This should be the output of `rippl_AI.get_intervals()`.
@@ -225,9 +225,40 @@ Usage examples can be found in the [examples_retraining.ipynb](https://github.co
 
 ## Exploration
 
-Usage examples can be found in the [examples_exploration.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_exploration.ipynb) python notebook.
+Finally, as a further explotation of this toolbox, we also offer an exploration module, in which you can create your own model. In the [examples_exploration.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_exploration.ipynb) python notebook, you can see how different architectures can be modified by multiple parameters to create infinite number of other models, that can be better adjusted to the need of your desired events. For example, if you are interested in lower frequency events, such as theta cycles, this exploratory module will be of utmost convenience to find an AI architecture that better adapts to the need of your research. Here, we specify the most common parameters to explore for each architecture:
 
+### 1D-CNN
+* Channels: number of LFP channel 
+* Window size: LFP window size to evaluate: LFP window size to evaluate
+* Kernel factor
+* Batch size
+* Number of epochs
 
+### 2D-CNN
+* Channels: number of LFP channel 
+* Window size: LFP window size to evaluate
+
+### LSTM
+* Channels: number of LFP channel 
+* Window size: LFP window size to evaluate
+* Bidirectionality
+* Number of layers
+* Number of units per layer
+* Number of epochs
+
+### SVM
+* Channels: number of LFP channel 
+* Window size: LFP window size to evaluate
+* Undersampling
+
+### XGBoost
+* Channels: number of LFP channel 
+* Window size: LFP window size to evaluate
+* Maximum tree depth
+* Learning rate
+* Gamma
+* Lambda regularity
+* Scale
 
 
 # Enviroment setup
