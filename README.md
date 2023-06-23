@@ -117,7 +117,11 @@ The python function `process_LFP()` of the `aux` module processes the LFP before
 
 ### aux.interpolate_channels()
 
-The python function `interpolate_channels()` of the `aux` module...
+The python function `interpolate_channels()` of the `aux` module allows creating more intermediate channels using interpolation. 
+
+Because these models best performed using a richer spatial profile, they need 8 channels as an input. However, it is possible that some times we cannot get such number of channels in the pyramidal layer, like when using linear probes (only 2 oe 3 channels fit in the pyramidal layer) or tetrodes (there are 4 recording channels).
+
+For this, we developed this interpolation function, that creates new channels between any pair of your recording channels. Using this approach, we can successfully use the already built algorithms with an equally high performance.
 
 * Mandatory inputs:
 
@@ -125,10 +129,17 @@ The python function `interpolate_channels()` of the `aux` module...
 
 * Output:
 
+Usage examples can be found in the [examples_detection/](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection/) folder.
+
 
 ### aux.get_performance()
 
-The python function `get_performance()` of the `aux` module...
+The python function `get_performance()` of the `aux` module computes several performance metrics:
+* precision: also called *positive predictive value* is computed as (# good detections) / (# all detections)
+* recall: also called *sensitivity* is computed as (# good detections) / (# all ground truth events)
+* F1: computed as the harmonic mean between precision and recall, is a conservative and fair measure of performance. If any of precision or recall is low, F1 will be low. F1=1 only happens if detected events exactly match ground truth events.
+
+Therefore, this function can be used only when some ground truth is given.
 
 * Mandatory inputs:
 
