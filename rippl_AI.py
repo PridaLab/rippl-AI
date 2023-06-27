@@ -4,11 +4,11 @@ mplstyle.use('fast')
 from matplotlib.backend_bases import MouseButton
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
-from aux_fcn import process_LFP,prediction_parser, get_predictions_index, middle_stamps,get_click_th, format_predictions
+from aux_fcn import process_LFP,prediction_parser, get_predictions_index, middle_stamps,get_click_th, format_predictions,split_data, retraining_parser, save_model,get_performance
 
 # Detection functions
 
-def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8)):
+def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=None):
     ''' returns the requested architecture and model number output probability
 
     Mandatory inputs:
@@ -44,6 +44,9 @@ def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8)):
         new_model: Other re-trained model you want to use for detection. If you have used our re-train function 
             to adapt the optimized models to your own data (see rippl_AI.retrain() for more details), you can input the new_model 
             here to use it to predict your events.
+            IMPORTANT: if you are using new_model, the data wont be treated, so make sure to have your data z-scored, 
+            subsampled at 1250 Hz and with the correct channels before invoking predict, for example using the process_LFP
+            function  
     Output:
         SWR_prob: model output for every sample of the LFP (np.array: n_samples x 1). It can be interpreted as the confidence 
             or probability of a SWR event, so values close to 0 mean that the model is certain that there are not SWRs,
@@ -53,10 +56,11 @@ def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8)):
     A Rubio, 2023 LCN
     '''
     #channels=opt['channels']
-    print(channels)
-    print('Original LFP shape: ',LFP.shape)
-    norm_LFP=process_LFP(LFP,sf,channels)
-    prob=prediction_parser(norm_LFP,arch,model_number)
+    if new_model==None:
+        norm_LFP=process_LFP(LFP,sf,channels)
+    else: # Data is supossedly already normalized when using new model
+        norm_LFP=LFP
+    prob=prediction_parser(norm_LFP,arch,model_number,new_model)
 
     return(prob,norm_LFP)
 
@@ -285,3 +289,141 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         if file_path:
             format_predictions(file_path,predictions_index,sf)
     return (predictions_index/sf)
+
+
+def prepare_retrain_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,channels=np.arange(0,8)):
+    '''
+        Prepares data for retraining: subsamples, interpolates (if required), z-scores and concatenates 
+        the train/test data passed. Does the same for the validation data, but without concatenating
+        inputs:
+            train_LFPs:  (n_train_sessions) list with the raw LFP of n sessions that will be used to train
+            train_GTs:   (n_train_sessions) list with the GT events of n sessions, in the format [ini end] in seconds
+            (A): quizá se podría quitar esto, lo de formatear tambien las de validacion 
+            val_LFPs:    (n_val_sessions) list: with the raw LFP of the sessions that will be used in validation
+            val_GTs:     (n_val_sessions) list: with the GT events of n validation sessions
+            sf:          (int) original sampling frequency of the data TODO (consultar con Andrea): make it an array, so every session could have a different sf
+            channels:    (n_channels) np.array. Channels that will be used to generate data. Check interpolate_channels for more information
+        output:
+            retrain_LFP: (n_samples x n_channels): sumbsampled, z-scored, interpolated and concatenated data from all the training sessions
+            retrain_GT:  (n_events x 2): concatenation of all the events in the training sessions
+            norm_val_GT: (n_val_sessions) list: list with the normalized LFP of all the val sessions
+            val_GTs:     (n_val_sessions) list: Gt events of each val sessions
+    A Rubio LCN 2023
+
+    '''
+    assert len(train_LFPs) == len(train_GTs), "The number of train LFPs doesn't match the number of train GTs"
+    assert len(val_LFPs) == len(val_GTs), "The number of test LFPs doesn't match the number of test GTs"
+
+    # All the training sessions data and GT will be concatenated in one data array and one GT array (2 x n events)
+    retrain_LFP=[]
+    for LFP,GT in zip(train_LFPs,train_GTs):
+        # 1st session in the array
+        print('Original training data shape: ',LFP.shape)
+        if retrain_LFP==[]:
+            retrain_LFP=process_LFP(LFP,sf,channels)
+            offset=len(retrain_LFP)/1250
+            retrain_GT=GT
+        # Append the rest of the sessions, taking into account the length (in seconds) 
+        # of the previous sessions, to cocatenate the events' times
+        else:
+            aux_LFP=process_LFP(LFP,sf,channels)
+            retrain_LFP=np.vstack([retrain_LFP,aux_LFP])
+            retrain_GT=np.vstack([retrain_GT,GT+offset])
+            offset+=len(aux_LFP)/1250
+    # Each validation session LFP will be normalized, etc and stored in an array
+    #  the GT needs no further treatment
+    norm_val_GT=[]
+    for LFP in val_LFPs:
+        print('Original validation data shape: ',LFP.shape)
+        norm_val_GT.append(process_LFP(LFP,sf,channels))
+
+
+    return retrain_LFP, retrain_GT , norm_val_GT, val_GTs
+
+# Retrain the best model of each architecture, and save it in the path specified in save_path.
+#  also plots the trai, test and validation performance
+def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None):
+    '''
+        Retrains the best model of the specified architecture with the retrain data and the specified parameters. Performs validation if validation data is provided, and plots the train, test and validation performance.
+        inputs:
+            LFP_retrain:  (n_samples x n_channels)  concatenated LFP of all the trained sessions
+            GT_retrain:   (n_events x 2) list with the concatenated GT events times of n sessions, in the format [ini end] in seconds
+            arch:          string, architecture of the model to be retrained
+            LFP_val:    (n_val_sessions) list: with the normalized LFP of the sessions that will be used in validation
+            GT_val:     (n_val_sessions) list: with the GT events of the validation sessions
+            Optional inputs
+                parameters: dictionary, with the parameters that will be use in each specific architecture retraining
+                - In 'XGBOOST': not needed
+                - In 'SVM':     
+                    parameters['Undersampler proportion']. Any value between 0 and 1. This parameter eliminates 
+                                    samples where no ripple is present untill the desired proportion is achieved: 
+                                    Undersampler proportion= Positive samples/Negative samples
+                - In 'LSTM', 'CNN1D' and 'CNN2D': 
+                    parameters['Epochs']. The number of times the training data set will be used to train the model
+                    parameters['Training batch']. The number of windows that will be processed before updating the weights
+                save_path: string, path where the retrained model will be saved
+        output:
+            retrain_LFP: (n_samples x n_channels): sumbsampled, z-scored, interpolated and concatenated data from all the training sessions
+            retrain_GT:  (n_events x 2): concatenation of all the events in the training sessions
+            norm_val_GT: (n_val_sessions) list: list with the normalized LFP of all the val sessions
+            val_GTs:     (n_val_sessions) list: Gt events of each val sessions
+    A Rubio LCN 2023
+
+    '''
+    # Do the train/test split. Feel free to try other proportions
+    LFP_test,events_test,LFP_train,events_train=split_data(LFP_retrain,GT_retrain,split=0.7)
+
+    print(f'Number of validation sessions: {len(LFP_val)}') #TODO: for shwoing length and events
+    print(f'Shape of train data: {LFP_train.shape}, Number of train events: {events_train.shape[0]}')
+    print(f'Shape of test data: {LFP_test.shape}, Number of test events: {events_test.shape[0]}')
+
+    # prediction parser returns the retrained model, the output predictions probabilities
+    model,y_pred_train,y_pred_test=retraining_parser(arch,LFP_train,events_train,LFP_test,events_test,params=parameters)
+
+    # Save model if save_path is not empty
+    if save_path:
+        save_model(model,arch,save_path)
+
+    # Plot section #
+    # for loop iterating over the validation data
+    val_pred=[]
+    for LFP in LFP_val:
+        val_pred.append(predict(LFP,sf=1250,arch=arch,new_model=model)[0])
+    # Extract and plot the train and test performance
+    th_arr=np.linspace(0.1,0.9,9)
+    F1_train=np.empty(shape=len(th_arr))
+    F1_test=np.empty(shape=len(th_arr))
+    for i,th in enumerate(th_arr):
+        pred_train_events=get_predictions_index(y_pred_train,th)/1250
+        pred_test_events=get_predictions_index(y_pred_test,th)/1250
+        _,_,F1_train[i],_,_,_=get_performance(pred_train_events,events_train,verbose=False)
+        _,_,F1_test[i],_,_,_=get_performance(pred_test_events,events_test,verbose=False)
+    
+
+    fig,axs=plt.subplots(1,2,figsize=(12,5),sharey='all')
+    axs[0].plot(th_arr,F1_train,'k.-')
+    axs[0].plot(th_arr,F1_test,'b.-')
+    axs[0].legend(['Train','Test'])
+    axs[0].set_ylim([0 ,max(max(F1_train), max(F1_test)) + 0.1])
+    axs[0].set_title('F1 test and train')
+    axs[0].set_ylabel('F1')
+    axs[0].set_xlabel('Threshold')
+
+
+    # Validation plot in the second ax
+    F1_val=np.zeros(shape=(len(LFP_val),len(th_arr)))
+    for j,pred in enumerate(val_pred):
+        for i,th in enumerate(th_arr):
+            pred_val_events=get_predictions_index(pred,th)/1250
+            _,_,F1_val[j,i],_,_,_=get_performance(pred_val_events,GT_val[j],verbose=False)
+
+    for i in range(len(LFP_val)):
+        axs[1].plot(th_arr,F1_val[i])
+    axs[1].plot(th_arr,np.mean(F1_val,axis=0),'k.-')
+    axs[1].set_title('Validation F1')
+    axs[1].set_ylabel('F1')
+    axs[1].set_xlabel('Threshold')
+   
+
+    
+    plt.show()

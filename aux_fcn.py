@@ -11,6 +11,8 @@ from keras.models import Sequential
 from keras import layers, optimizers
 from keras.initializers import GlorotUniform, Orthogonal
 from xgboost import XGBClassifier
+from imblearn.under_sampling import RandomUnderSampler
+
 
 def fcn_save_pickle(name,x):
 	'''
@@ -48,6 +50,7 @@ def bz_LoadBinary(filename, nChannels, channels, sampleSize, verbose=False):
 		print("Cannot load specified channels (listed channel IDs inconsistent with total number of channels).")
 		return
 
+	#aqui iria CdE de filename
 	with open(filename, "rb") as f:
 		dataOffset = 0
 
@@ -112,8 +115,14 @@ def bz_LoadBinary(filename, nChannels, channels, sampleSize, verbose=False):
 
 	return data
 
-
 # Functions used to load the raw LFP, select channels, load ripples, downsample and normalize
+def load_lab_data(path):
+	sf, expName, ref_channels, dead_channels = load_info(path)
+	channels_map = load_channels_map(path)
+	ripples=load_ripples(path)/sf
+	channels, shanks, ref_channels = reformat_channels(channels_map, ref_channels)
+	LFP = load_raw_data(path, expName, channels, verbose=True)
+	return(LFP,ripples)
 def load_info (path):
 	try:
 		mat = scipy.io.loadmat(os.path.join(path, "info.mat"))
@@ -293,8 +302,8 @@ def generate_overlapping_windows(data, window_size, stride, sf):
 
 	return new_data
 
-
 # Detection functions
+
 def process_LFP(LFP,sf,channels):
     
     ''' 
@@ -305,7 +314,7 @@ def process_LFP(LFP,sf,channels):
 
 	Mandatory inputs:
 		LFP: 		LFP recorded data (np.array: n_samples x n_channels).
-		sf: 		sampling frequency (in Hz).
+		sf: 		Original sampling frequency (in Hz).
 		channels: 	channel to which compute the undersampling and z-score normalization. Counting starts in 0. 
 					If channels contains any -1, interpolation will be also applied. 
 					See channels of rippl_AI.predict(), or aux_fcn.interpolate_channels() for more information.
@@ -326,7 +335,7 @@ def process_LFP(LFP,sf,channels):
     normalized_data=z_score_normalization(data)
     return normalized_data
 
-def prediction_parser(LFP,arch='CNN1D',model_number=1):
+def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None):
     '''
     [y] = prediction_parser(LFP,model_sel) 
     Computes the output of the model passed in params \n
@@ -334,22 +343,36 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1):
         LFP:			 [n x 8] lfp data,subsampled and z-scored 
         arch:   		 string containing the name of the architecture 
         model_number:    int, if 1 the best model will be used to predict
+		new_model:       keras model, retrained model, if not empty, it will be used to predict
+						 IMPORTANT: make sure the new_model architecture and the 'arch' parameter match
 
     Output: 
         y: (n) shape array with the output of the chosen model
 	A Rubio, LCN 2023
     '''
    
-   
+	# If no new_model is passed:
     # Looks for the name of the selected model
-    for filename in os.listdir('optimized_models'):
-        if f'{arch}_{model_number}' in filename:
-            break
-    print(filename)
-    sp=filename.split('_')
-    n_channels=int(sp[2][2])
-    timesteps=int(sp[4][2:])
-
+    if new_model==None:
+        for filename in os.listdir('optimized_models'):
+            if f'{arch}_{model_number}' in filename:
+                break
+        print(filename)
+        sp=filename.split('_')
+        n_channels=int(sp[2][2])
+        timesteps=int(sp[4][2:])
+    else: # Manually set n_channels and timesteps to match the retrained model parameters
+        n_channels=8
+        if arch=='CNN1D':
+            timesteps=16
+        elif arch=='CNN2D':
+            timesteps=40
+        elif arch=='LSTM':
+            timesteps=32
+        elif arch=='SVM':
+            timesteps=1
+        else:
+            timesteps=16
 	
 	#print(f'Validating arquitecture {arch} using {n_channels} channels and {timesteps} timesteps')
 	# Input shape: number of channels
@@ -357,14 +380,15 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1):
     input_len=LFP.shape[0]
     # Make sure the input data and the model number of 
     assert n_channels==LFP.shape[1],f'The model expects {n_channels} channels and the data has {LFP.shape[1]}'
-    print(n_channels,LFP.shape[1])
 	# Input shape: timesteps
     if arch=='XGBOOST':
         LFP=LFP[:len(LFP)-len(LFP)%timesteps,:].reshape(-1,timesteps*n_channels)
         y_predict= np.zeros(shape=(input_len,1,1))
-		# model load
-        xgb=XGBClassifier()
-        xgb.load_model(os.path.join('optimized_models',filename))
+        if new_model==None:
+            xgb=XGBClassifier()
+            xgb.load_model(os.path.join('optimized_models',filename))
+        else:
+            xgb=new_model
         windowed_signal=xgb.predict_proba(LFP)[:,1]
         for i,window in enumerate(windowed_signal):
             y_predict[i*timesteps:(i+1)*timesteps]=window
@@ -372,8 +396,10 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1):
         LFP=LFP[:len(LFP)-len(LFP)%timesteps,:].reshape(-1,timesteps*n_channels)
         y_predict= np.zeros(shape=(input_len,1,1))
 		# model load
-        clf=fcn_load_pickle(os.path.join('optimized_models',filename)).calibrated_classifiers_[0]
-
+        if new_model==None:
+            clf=fcn_load_pickle(os.path.join('optimized_models',filename)).calibrated_classifiers_[0]
+        else:
+            clf=new_model
         windowed_signal= clf.predict_proba(LFP)[:,1]
         for i,window in enumerate(windowed_signal):
             y_predict[i*timesteps:(i+1)*timesteps]=window
@@ -381,14 +407,20 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1):
     elif arch=='LSTM':
         LFP=LFP[:len(LFP)-len(LFP)%timesteps,:].reshape(-1,timesteps,n_channels)
 		# Model load
-        model = keras.models.load_model(os.path.join('optimized_models',filename))
+        if new_model==None:
+           model = keras.models.load_model(os.path.join('optimized_models',filename))
+        else:
+           model = new_model
         y_predict = model.predict(LFP,verbose=1)
         y_predict=y_predict.reshape(-1,1,1)
         y_predict=np.append(y_predict,np.zeros(shape=(input_len%timesteps,1,1))) if (input_len%timesteps!=0) else y_predict
     elif arch=='CNN1D':
         LFP=LFP[:len(LFP)-len(LFP)%timesteps,:].reshape(-1,timesteps,n_channels)
         optimizer = keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
-        model = keras.models.load_model(os.path.join('optimized_models',filename), compile=False)
+        if new_model==None:
+            model = keras.models.load_model(os.path.join('optimized_models',filename), compile=False)
+        else:
+            model=new_model
         model.compile(loss="binary_crossentropy", optimizer=optimizer)
 
         windowed_signal = model.predict(LFP, verbose=True)
@@ -397,7 +429,10 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1):
         for i,window in enumerate(windowed_signal):
             y_predict[i*timesteps:(i+1)*timesteps]=window
     elif arch=='CNN2D':
-        model = keras.models.load_model(os.path.join('optimized_models',filename))
+        if new_model==None:
+            model = keras.models.load_model(os.path.join('optimized_models',filename))
+        else:
+            model=new_model
         LFP=LFP[:len(LFP)-len(LFP)%timesteps,:].reshape(-1,timesteps,n_channels,1)
         y_predict= np.zeros(shape=(input_len,1,1))
         windowed_signal= model.predict(LFP,verbose=1)
@@ -406,8 +441,8 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1):
         
     return(y_predict.reshape(-1))
 
-
 # Selecting the index functions
+
 def get_predictions_index(predictions,threshold=0.5):
 	'''
 		[pred_indexes] = get_predictions_index(predictions, thershold)\n
@@ -474,8 +509,8 @@ def format_predictions(path,preds,sf):
     f.close()
     return  
 
-
 # Performance (precission, recall, F1) metrics
+
 def get_performance(pred_events, true_events, threshold=0, exclude_matched_trues=False, verbose=True):
 
 	'''
@@ -600,7 +635,6 @@ def intersection_over_union(x, y):
 		print('y is empty. Cant perform IoU')
 		return np.array([]), np.zeros((1, x.shape[0])), np.array([])
 
-
 # Interpolation 
 def interpolate_channels(data, ch_map):
     
@@ -617,3 +651,266 @@ def interpolate_channels(data, ch_map):
             interp_data[:,idx] = data[:, pre_ch] + ((idx-pre_ch_idx)/ch_dist) * \
                 (data[:, post_ch] - data[:, pre_ch])
     return interp_data
+
+# Retraining auxiliary functions
+def split_data(x,GT,window_dur=60,sf=1250,split=0.7):
+    '''
+    [x_test,y_test,x_train,y_train] = split_data(x,y,window_dur,sf,split)\n
+    Performs the data train-test split, with the proportion specified in 'split' going to train. The data is shuffled in windows of 'window_dur' seconds\n
+    Inputs:
+		x:			[n X n_channels] matrix with the LFP values of the session
+		GT:			[n events x 2]	initial and end times of each events
+		window_dur: float, length in seconds of the chunks that will be asigned randomly to train or validation subsets
+		sf:			int, sampling frequency of the passed data
+		split:		float, proportion of windows that will be asigned to the train subset (the final proportion will diverge, being random)
+    
+	Output:		
+    	x_test:			[test_samples x n_channels]: Test subset input 
+		y_test:			[n_test_events x 2]: Test subset output 
+		x_train:		[train_samples x n_channels]: training subset input 
+		y_train:		[n_train_events x 2,]: training subset output
+	A Rubio LCN 2023
+    '''
+    n_samples_window=window_dur*sf
+    n_windows=len(x)//n_samples_window
+    
+    y=np.zeros(shape=len(x))
+
+    for event in GT:
+        y[int(sf*event[0]):int(sf*event[1])]=1
+    x_test=[]
+    x_train=[]
+    y_train=[]
+    y_test=[]
+    n_channels=x.shape[1]
+    rand_arr= np.random.rand(n_windows)    
+    for i in range(n_windows):
+        if rand_arr[i]>=split:
+            x_test=np.append(x_test,x[i*n_samples_window:(i+1)*n_samples_window])
+            y_test=np.append(y_test,y[i*n_samples_window:(i+1)*n_samples_window])
+        else:
+            x_train=np.append(x_train,x[i*n_samples_window:(i+1)*n_samples_window])
+            y_train=np.append(y_train,y[i*n_samples_window:(i+1)*n_samples_window])
+            
+    x_test=np.reshape(x_test,(-1,n_channels))
+    x_train=np.reshape(x_train,(-1,n_channels))
+    events_test=get_predictions_index(y_test)/sf
+    events_train=get_predictions_index(y_train)/sf
+    return x_test,events_test,x_train,events_train
+
+def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=None):
+	'''
+	TODO: comment this
+	(A): solo retrain del primer modelo
+	[y] = prediction_parser(params, x,s) 
+	Computes the output of the model cpassed in params \n
+	Inputs:		
+		params:		dictionary with the model parameters and training performance results
+		x:			[n x 8] lfp data,subsampled and z-scored 
+
+	Output: 
+		y: (n) shape array with the output of the evaluated model
+	A Rubio 2023 LCN
+	'''
+	# Input data preparing for training
+	x_train = np.copy(x_train_or)
+	# Sampling frequency hard fixed to 1250
+	y_train= np.zeros(shape=(len(x_train)))
+	for ev in events_train:
+		y_train[int(1250*ev[0]):int(1250*ev[1])]=1
+
+	y_test= np.zeros(shape=(len(x_test)))
+	for ev in events_test:
+		y_test[int(1250*ev[0]):int(1250*ev[1])]=1
+
+	x_train_len=x_train.shape[0]
+	x_test_len=x_test.shape[0]
+	
+	# Automatically hard coded to input the rquired shape for the best model of each arch 
+	if arch=='XGBOOST':
+		n_channels=8
+		timesteps=16
+		# Making the input data and expected output compatible with he resizing
+		x_train=x_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps*n_channels)
+		y_train_aux=y_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps)
+		y_train=rec_signal(y_train_aux)
+
+		x_test=x_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps*n_channels)
+		y_test_aux=y_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps)
+		y_test=rec_signal(y_test_aux)
+		# model load
+		model=XGBClassifier()
+		model.load_model(os.path.join('optimized_models','XGBOOST_1_Ch8_W60_Ts016_D7_Lr0.10_G0.25_L10_SCALE1'))
+
+		model.fit(x_train, y_train,verbose=True,eval_set = [(x_test, y_test)])
+		
+		y_train_p=np.zeros(shape=(x_train_len,1,1))
+		train_signal=model.predict_proba(x_train)[:,1]
+		for i,window in enumerate(train_signal):
+			y_train_p[i*timesteps:(i+1)*timesteps]=window
+		y_test_p=np.zeros(shape=(x_test_len,1,1))	
+		test_signal=model.predict_proba(x_test)[:,1]
+		for i,window in enumerate(test_signal):
+			y_test_p[i*timesteps:(i+1)*timesteps]=window
+	elif arch=='SVM':
+		n_channels=8
+		timesteps=1
+		# Making the input data and expected output compatible with he resizing
+		x_train=x_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps*n_channels)
+		y_train_aux=y_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps)
+		y_train=rec_signal(y_train_aux)
+
+		x_test=x_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps*n_channels)
+		y_test_aux=y_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps)
+		y_test=rec_signal(y_test_aux)
+
+		#Under sampler: discards windows where there is no ripples untill the desired proportion between ripple/no ripple is achieved
+		# If no params is provided, the defect proportion will be 0.5
+		if params==None:
+			us_prop=0.5
+		else:
+			us_prop=params['Unsersampler proportion']
+		rus = RandomUnderSampler(sampling_strategy=us_prop)
+		x_train_us, y_train_us = rus.fit_resample(x_train, y_train)
+		
+		print(f"Under sampling result: {x_train_us.shape}")
+		# model load
+		model=fcn_load_pickle(os.path.join('optimized_models','SVM_1_Ch8_W60_Ts001_Us0.05'))
+		# model fit
+		model=model.fit(x_train_us, y_train_us)
+
+		y_train_p=np.zeros(shape=(x_train_len,1,1))
+		train_signal=model.predict_proba(x_train)[:,1]
+		for i,window in enumerate(train_signal):
+			y_train_p[i*timesteps:(i+1)*timesteps]=window
+		y_test_p=np.zeros(shape=(x_test_len,1,1))	
+		test_signal=model.predict_proba(x_test)[:,1]
+		for i,window in enumerate(test_signal):
+			y_test_p[i*timesteps:(i+1)*timesteps]=window
+	elif arch=='LSTM':
+		n_channels=8
+		timesteps=32
+		x_train=x_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps,n_channels)
+		y_train=y_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps,1)
+		x_test=x_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps,n_channels)
+		y_test=y_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps,1)
+		print("Input and output shape: ",x_train.shape,y_train.shape)
+		model = keras.models.load_model(os.path.join('optimized_models','LSTM_1_Ch8_W60_Ts32_Bi0_L4_U11_E10_TB256'))
+		# If no parameters are provided, 5 epochs and 32 as training batch will be used
+		if params==None:
+			epochs=5
+			tb=32
+		else:
+			epochs=params['Epochs']
+			tb=params['Training batch']
+		model.fit(x_train, y_train, epochs=epochs,batch_size=tb,validation_data=(x_test,y_test), verbose=1)
+	    
+		y_train_p = model.predict(x_train,verbose=1)
+		y_train_p=y_train_p.reshape(-1,1,1)
+		y_test_p = model.predict(x_test,verbose=1)
+		y_test_p=y_test_p.reshape(-1,1,1)
+	elif arch=='CNN1D':
+		n_channels=8
+		timesteps=16
+		x_train=x_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps,n_channels)
+		y_train_aux=y_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps)
+		x_test=x_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps,n_channels)
+		y_test_aux=y_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps)
+
+		y_train=np.zeros(shape=[x_train.shape[0],1])
+		for i in range(y_train_aux.shape[0]):
+			y_train[i]=1  if any (y_train_aux[i]==1) else 0
+		print("Train Input and Output dimension", x_train.shape,y_train.shape)
+		
+		y_test=np.zeros(shape=[x_test.shape[0],1])
+		for i in range(y_test_aux.shape[0]):
+			y_test[i]=1  if any (y_test_aux[i]==1) else 0
+
+		optimizer = keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
+		model = keras.models.load_model(os.path.join('optimized_models','CNN1D_1_Ch8_W60_Ts16_OGmodel12'), compile=False)
+		model.compile(loss="binary_crossentropy", optimizer=optimizer)
+		if params==None:
+			epochs=20
+			tb=32
+		else:
+			epochs=params['Epochs']
+			tb=params['Training batch']
+		model.fit(x_train, y_train,shuffle=False, epochs=epochs,batch_size=tb,validation_data=(x_test,y_test), verbose=1)
+		y_train_p=np.zeros(shape=(x_train_len,1,1))
+		train_signal=model.predict(x_train)
+		for i,window in enumerate(train_signal):
+			y_train_p[i*timesteps:(i+1)*timesteps]=window
+		y_test_p=np.zeros(shape=(x_test_len,1,1))	
+		test_signal=model.predict(x_test)
+		for i,window in enumerate(test_signal):
+			y_test_p[i*timesteps:(i+1)*timesteps]=window
+	elif arch=='CNN2D':
+		n_channels=8
+		timesteps=40
+		x_train=x_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps,n_channels,1)
+		y_train_aux=y_train[:x_train_len-x_train_len%timesteps].reshape(-1,timesteps,1)
+		x_test=x_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps,n_channels,1)
+		y_test_aux=y_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps,1)
+
+		y_train=np.zeros(shape=[x_train.shape[0],1])
+		for i in range(y_train_aux.shape[0]):
+			y_train[i]=1  if any (y_train_aux[i]==1) else 0
+		y_test=np.zeros(shape=[x_test.shape[0],1])
+		for i in range(y_test_aux.shape[0]):
+			y_test[i]=1  if any (y_test_aux[i]==1) else 0
+	
+		model = keras.models.load_model(os.path.join('optimized_models','CNN2D_1_Ch8_W60_Ts40_OgModel'))
+		# If no parameters are provided, 20 epochs and 32 as training batch will be used
+		if params==None:
+			epochs=20
+			tb=32
+		else:
+			epochs=params['Epochs']
+			tb=params['Training batch']
+		model.fit(x_train, y_train,shuffle=False, epochs=epochs,batch_size=tb,validation_data=(x_test,y_test), verbose=1)
+		y_train_p=np.zeros(shape=(x_test_len,1,1))
+		train_signal=model.predict(x_train)
+		for i,window in enumerate(train_signal):
+			y_train_p[i*timesteps:(i+1)*timesteps]=window
+		y_test_p=np.zeros(shape=(x_test_len,1,1))	
+		test_signal=model.predict(x_test)
+		for i,window in enumerate(test_signal):
+			y_test_p[i*timesteps:(i+1)*timesteps]=window
+        
+	return(model,y_train_p.reshape(-1),y_test_p.reshape(-1))
+
+def rec_signal(y):
+    '''
+    rec_signal compatibilizes the ground truth signal y with the expected output of XGBOOST and SVM architectures
+		input:	(n_samples,n_windows) ground truth signal containing 0 or 1 indicating the presence of ripples
+		outpur: (n_samples) collapsed ground truth, if any samples in the input window contains ripple, the collapsed 
+				signal contains a 1
+
+	'''
+    len=np.shape(y)[0]
+    print(np.shape(y))
+    r_signal=np.zeros(shape=(len))
+    for i,w in enumerate(y):
+        if any(w)==1:
+            r_signal[i]=1
+    return r_signal
+
+def save_model (model,arch,path):
+	'''
+	Model save parser
+		Input:
+			model: actual model to save
+			arch:   string, architecture of the model
+			path:  string, path to the saved model
+	A Rubio LCN 2023
+	'''
+	if (arch=='CNN2D' or arch=='CNN1D' or arch=='LSTM'):
+		if not os.path.exists(f'{path}'):
+			os.mkdir(f'{path}')
+		model.save(f'{path}')
+	elif arch=='XGBOOST':
+		model.save_model(f'{path}')
+	else:
+		fcn_save_pickle(f'{path}',model)
+	return
+
