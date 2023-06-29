@@ -8,7 +8,7 @@ from aux_fcn import process_LFP,prediction_parser, get_predictions_index, middle
 
 # Detection functions
 
-def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=None):
+def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=None,n_channels=None,n_timesteps=None):
     ''' returns the requested architecture and model number output probability
 
     Mandatory inputs:
@@ -44,9 +44,13 @@ def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=N
         new_model: Other re-trained model you want to use for detection. If you have used our re-train function 
             to adapt the optimized models to your own data (see rippl_AI.retrain() for more details), you can input the new_model 
             here to use it to predict your events.
-            IMPORTANT: if you are using new_model, the data wont be treated, so make sure to have your data z-scored, 
+            IMPORTANT: if you are using new_model, the data wont be processed, so make sure to have your data z-scored, 
             subsampled at 1250 Hz and with the correct channels before invoking predict, for example using the process_LFP
             function  
+            IMPORTANT: if you are using a new_model, you have to pass as arguments its number of channels andthe
+            timesteps for window
+                n_channels= int, the number of channels of the new model
+                timesteps = int, the number of timesteps per window of the new model
     Output:
         SWR_prob: model output for every sample of the LFP (np.array: n_samples x 1). It can be interpreted as the confidence 
             or probability of a SWR event, so values close to 0 mean that the model is certain that there are not SWRs,
@@ -60,7 +64,7 @@ def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=N
         norm_LFP=process_LFP(LFP,sf,channels)
     else: # Data is supossedly already normalized when using new model
         norm_LFP=LFP
-    prob=prediction_parser(norm_LFP,arch,model_number,new_model)
+    prob=prediction_parser(norm_LFP,arch,model_number,new_model,n_channels,n_timesteps)
 
     return(prob,norm_LFP)
 
@@ -290,10 +294,10 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
             format_predictions(file_path,predictions_index,sf)
     return (predictions_index/sf)
 
-
-def prepare_retrain_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,channels=np.arange(0,8)):
+# Prepares data for training, used in retraining and exploring notebooks
+def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,channels=np.arange(0,8)):
     '''
-        Prepares data for retraining: subsamples, interpolates (if required), z-scores and concatenates 
+        Prepares data for training: subsamples, interpolates (if required), z-scores and concatenates 
         the train/test data passed. Does the same for the validation data, but without concatenating
         inputs:
             train_LFPs:  (n_train_sessions) list with the raw LFP of n sessions that will be used to train
@@ -387,8 +391,25 @@ def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,sav
     # Plot section #
     # for loop iterating over the validation data
     val_pred=[]
+    # The correct n_channels and timesteps needs to be passed to predict for the fcn to work when using new_model
+    if arch=='XGBOOST':
+        n_channels=8
+        timesteps=16
+    elif arch=='SVM':
+        n_channels=8
+        timesteps=1
+    elif arch=='LSTM':
+        n_channels=8
+        timesteps=32
+    elif arch=='CNN2D':
+        n_channels=8
+        timesteps=40
+    elif arch=='CNN1D':
+        n_channels=8
+        timesteps=16
+    
     for LFP in LFP_val:
-        val_pred.append(predict(LFP,sf=1250,arch=arch,new_model=model)[0])
+        val_pred.append(predict(LFP,sf=1250,arch=arch,new_model=model,n_channels=n_channels,n_timesteps=timesteps)[0])
     # Extract and plot the train and test performance
     th_arr=np.linspace(0.1,0.9,9)
     F1_train=np.empty(shape=len(th_arr))

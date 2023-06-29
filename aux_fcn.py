@@ -31,6 +31,7 @@ def fcn_load_pickle(name):
     		return( pickle.load(handle) )
 
 
+# Estas dos funciones están normalmente en bz_load_binary, se pueden mover allá
 def loadChunk(fid, nChannels, channels, nSamples, precision):
 	size = int(nChannels * nSamples * precision)
 	nSamples = int(nSamples)
@@ -123,6 +124,8 @@ def load_lab_data(path):
 	channels, shanks, ref_channels = reformat_channels(channels_map, ref_channels)
 	LFP = load_raw_data(path, expName, channels, verbose=True)
 	return(LFP,ripples)
+
+
 def load_info (path):
 	try:
 		mat = scipy.io.loadmat(os.path.join(path, "info.mat"))
@@ -228,6 +231,7 @@ def load_raw_data (path, expName, channels, verbose=False):
 
 	return data
 
+
 def downsample_data (data, sf, downsampled_fs):
 
     # Dowsampling
@@ -249,6 +253,7 @@ def downsample_data (data, sf, downsampled_fs):
 
     return downsampled_data
 
+
 def z_score_normalization(data):
 	channels = range(np.shape(data)[1])
 
@@ -267,6 +272,7 @@ def z_score_normalization(data):
 	
 	return data
 
+
 def load_data_fs(path, shank, verbose=False):
 	# Read info.mat
 	sf, expName, ref_channels, dead_channels = load_info(path)
@@ -281,6 +287,7 @@ def load_data_fs(path, shank, verbose=False):
 
 
 	return data, sf
+
 
 def generate_overlapping_windows(data, window_size, stride, sf):
 	window_pts = int(window_size * sf)
@@ -335,17 +342,21 @@ def process_LFP(LFP,sf,channels):
     normalized_data=z_score_normalization(data)
     return normalized_data
 
-def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None):
+
+def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=None,n_timesteps=None):
     '''
     [y] = prediction_parser(LFP,model_sel) 
     Computes the output of the model passed in params \n
     Inputs:		
         LFP:			 [n x 8] lfp data,subsampled and z-scored 
+	 Optional inputs:
         arch:   		 string containing the name of the architecture 
         model_number:    int, if 1 the best model will be used to predict
 		new_model:       keras model, retrained model, if not empty, it will be used to predict
 						 IMPORTANT: make sure the new_model architecture and the 'arch' parameter match
-
+			*If a new model is used, n_channels and n_timesteps need to be passed too*
+			n_channels:  int, number of channels in new model
+			n_timesteps:  int, number of timesteps per window of new model 
     Output: 
         y: (n) shape array with the output of the chosen model
 	A Rubio, LCN 2023
@@ -362,17 +373,8 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None):
         n_channels=int(sp[2][2])
         timesteps=int(sp[4][2:])
     else: # Manually set n_channels and timesteps to match the retrained model parameters
-        n_channels=8
-        if arch=='CNN1D':
-            timesteps=16
-        elif arch=='CNN2D':
-            timesteps=40
-        elif arch=='LSTM':
-            timesteps=32
-        elif arch=='SVM':
-            timesteps=1
-        else:
-            timesteps=16
+        n_channels=n_channels
+        timesteps=n_timesteps
 	
 	#print(f'Validating arquitecture {arch} using {n_channels} channels and {timesteps} timesteps')
 	# Input shape: number of channels
@@ -509,6 +511,7 @@ def format_predictions(path,preds,sf):
     f.close()
     return  
 
+
 # Performance (precission, recall, F1) metrics
 
 def get_performance(pred_events, true_events, threshold=0, exclude_matched_trues=False, verbose=True):
@@ -635,6 +638,7 @@ def intersection_over_union(x, y):
 		print('y is empty. Cant perform IoU')
 		return np.array([]), np.zeros((1, x.shape[0])), np.array([])
 
+
 # Interpolation 
 def interpolate_channels(data, ch_map):
     
@@ -700,17 +704,29 @@ def split_data(x,GT,window_dur=60,sf=1250,split=0.7):
 
 def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=None):
 	'''
-	TODO: comment this
-	(A): solo retrain del primer modelo
-	[y] = prediction_parser(params, x,s) 
-	Computes the output of the model cpassed in params \n
-	Inputs:		
-		params:		dictionary with the model parameters and training performance results
-		x:			[n x 8] lfp data,subsampled and z-scored 
-
-	Output: 
-		y: (n) shape array with the output of the evaluated model
-	A Rubio 2023 LCN
+	[model,y_train,y_test] = retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=None)\n
+    Performs the retraining of the best model of the desired architecture  \n
+    Inputs:
+		arch:			string, with the desired architecture model to be retrained
+		x_train_or:		[n train samples x 8], normalized LFP that will be used to retrain the model
+		events_train: 	[n train events x 2], begin and end timess of the train events
+		x_test_or:		[n test samples x 8], normalized LFP that will be used to retrain the model
+		events_train: 	[n test events x 2], begin and end timess of the test events 
+		Optional inputs
+			params: dictionary, with the parameters that will be use in each specific architecture retraining
+			- In 'XGBOOST': not needed
+			- In 'SVM':     
+				params['Undersampler proportion']. Any value between 0 and 1. This parameter eliminates 
+								samples where no ripple is present untill the desired proportion is achieved: 
+								Undersampler proportion= Positive samples/Negative samples
+			- In 'LSTM', 'CNN1D' and 'CNN2D': 
+				params['Epochs']. The number of times the training data set will be used to train the model
+				params['Training batch']. The number of windows that will be processed before updating the weights   
+	Output:		
+    	model: The retrained model
+	    y_train_p: [n_train_samples], output of the model using the training data
+	    y_test_p:  [n_test_samples], output of the model using the test data
+	A Rubio LCN 2023
 	'''
 	# Input data preparing for training
 	x_train = np.copy(x_train_or)
@@ -726,7 +742,7 @@ def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=Non
 	x_train_len=x_train.shape[0]
 	x_test_len=x_test.shape[0]
 	
-	# Automatically hard coded to input the rquired shape for the best model of each arch 
+	# Automatically hard coded to input the required shape for the best model of each arch 
 	if arch=='XGBOOST':
 		n_channels=8
 		timesteps=16
@@ -914,3 +930,157 @@ def save_model (model,arch,path):
 		fcn_save_pickle(f'{path}',model)
 	return
 
+
+# Explore functions
+def build_LSTM(input_shape,n_layers=3,layer_size=20,bidirectional=False):
+	'''
+	model = build_LSTM(input_shape,lr,dropout_rate,n_layers,layer_size,seed,bidirectional) 
+	Builds the specified LSTM model \n
+	Inputs:		
+		input_shape:		
+		x:				[timesteps x n_channels] input dimensionality of the data,
+		n_layers: 		int, # of LSTM layers
+		layer_size: 	int, # number of LSTM units per layer
+		bidirectional:	bool, True if the models processes backwards from the end of the window, and the usual forward pass from the begininning simultaneously
+
+	Output: 
+		model: LSTM keras model
+	'''
+	keras.backend.clear_session()
+	dropout_rate=0.2			# Hard fix to a standard value
+    # input layer
+	inputs = keras.layers.Input(shape=input_shape)
+
+    #LSTM layers
+	if bidirectional==False:
+		for i in range(n_layers):
+			if i==0:
+				x = keras.layers.LSTM(layer_size, return_sequences=True,
+                                    kernel_initializer=GlorotUniform(),
+                                    recurrent_initializer=Orthogonal(),
+                                    )(inputs)
+				x = keras.layers.Dropout(dropout_rate)(x)
+				x = keras.layers.BatchNormalization()(x)
+				x = keras.layers.Dropout(dropout_rate)(x)
+			else:
+				x = keras.layers.LSTM(layer_size, return_sequences=True,
+                            kernel_initializer=GlorotUniform(),
+                            recurrent_initializer=Orthogonal(),
+                            )(x)
+				x = keras.layers.Dropout(dropout_rate)(x)
+				x = keras.layers.BatchNormalization()(x)
+				x = keras.layers.Dropout(dropout_rate)(x)
+	else: # Bidirectional
+		for i in range(n_layers):
+			if i==0:
+				x = keras.layers.Bidirectional(keras.layers.LSTM(layer_size, return_sequences=True,
+				                    kernel_initializer=GlorotUniform(),
+				                    recurrent_initializer=Orthogonal(),
+				                    ) )(inputs)
+				x = keras.layers.Dropout(dropout_rate,)(x)
+				x = keras.layers.BatchNormalization()(x)
+				x = keras.layers.Dropout(dropout_rate,)(x)
+			else:
+				x = keras.layers.Bidirectional(keras.layers.LSTM(layer_size, return_sequences=True,
+				            kernel_initializer=GlorotUniform()),
+				            recurrent_initializer=Orthogonal()
+				            ) (x)
+				x = keras.layers.Dropout(dropout_rate, )(x)
+				x = keras.layers.BatchNormalization()(x)
+				x = keras.layers.Dropout(dropout_rate, )(x)
+
+	predictions = keras.layers.Dense(1, activation='sigmoid',kernel_initializer=GlorotUniform())(x)
+    # Define model
+	model = keras.models.Model(inputs=inputs,
+                               outputs=predictions,
+                               name='BCG_LSTM')
+
+	opt = keras.optimizers.Adam(learning_rate=0.005)  # Hard fixed to 0.005
+	model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['mse'])
+
+	return model
+
+def build_CNN2D(conf, input_shape = (50,8,1)):
+	'''
+	model = build_CNN2D(conf,input_shape,learning_rate) 
+	Builds the specified CNN2D model \n
+	Inputs:		
+		conf:	[n_l x 2] list. n_l is the number of 2Dconvolotional, Batch Normalization and LeakyRelu sets.
+				Each row shape: [n_k k_h k_w] n_k is the number of kernels of the layer, which defines the output shape
+										   	  k_h is the width of each 2D kernel
+											  k_w is the height of each 2D kernel
+		input_shape:			[n x 8] lfp data,subsampled and z-scored
+		learning_rate:	float, the size step multiplier for the weight updates during training
+
+	Output: 
+		model: keras model with the specified parameters
+	A Rubio LCN 2023
+	'''
+	n_max_pool_l=len(conf)//2
+	assert 2**n_max_pool_l<=input_shape[1],"\nThe resulting model will decrease the input dimensionality too much.Try one of the following:\n1. Increase the number of used channels.\n2. Decrease the number of layers."
+	model = Sequential()
+	for i,layer_conf in enumerate (conf):
+		if i==0:
+			model.add(layers.Conv2D(filters = layer_conf[0], kernel_size=(layer_conf[1],layer_conf[2]), activation='relu',
+						input_shape=input_shape, padding='same', strides = (1,1)))
+		else: 
+			model.add(layers.Conv2D(filters = layer_conf[0], kernel_size=(layer_conf[1],layer_conf[2]), activation='relu',
+						padding='same'))
+		model.add(layers.BatchNormalization())
+		model.add(layers.ReLU())
+		if i<n_max_pool_l:
+			model.add(layers.MaxPooling2D((2, 2)))
+
+	
+	model.add(layers.Flatten())
+	model.add(layers.Dense(1, activation='sigmoid'))
+	model.build()
+	# Learning rate hard fixed in 1e-5
+	model.compile(
+        optimizer= optimizers.Adam(learning_rate=1e-5), 
+        loss='binary_crossentropy', 
+        metrics=['mse']  
+    )
+	return model
+
+def build_CNN1D(n_channels,timesteps,conf):
+	'''
+		model = build_CNN1D(n_channels, timesteps, conf)\n
+		Returns a 1D convolutional neural network. If the desired configuration will create problems, and exception with sugestions is thrown\n
+		Inputs:
+			n_channels:		int, number of used channels (1,3 or 8)
+			timesteps:		int, number of timestamps that will be used to feed the model
+			conf:			[n_l x 2] list. n_l is the number of 1Dconvolotional, Batch Normalization and LeakyRelu sets.
+				Each row shape: [n_k k_w]. n_k is the number of kernels of the layer, which defines the output shape
+										   k_w is the width and the stride of the kernels
+				For more clarifications, visit: 
+		Output:		
+			model: CNN1D model, consisting of a number of conv1D-BatchNorm-LeakyReLU sets followed by a dense layer.
+					Input: (N,timesteps,n_channels) --> Output: (N,1,1,)
+	A Rubio LCN 2023
+	'''
+	o_shape_arr=[]
+	for i,layer_conf in enumerate(conf):
+		if i==0:
+			o_shape_arr.append(timesteps//layer_conf[1])
+		else:
+			o_shape_arr.append(o_shape_arr[i-1]//layer_conf[1]) # The output shape of the layer n is the output of the n-1 layer /stride
+	#assert 0 not in o_shape_arr, "\nThe chosen kernel dimensionality will cause problems.\nTry one of the following:\n1. Increment time window (timesteps) size.\n2. Decrement the 1st kernel size.\n3. Decrement the rest of the kernels size"
+
+	assert o_shape_arr[-1]==1, '\nThe output of the model is not shaped (1,1).\nTry incrementing the kernel size of the final layers'
+
+	keras.backend.clear_session()
+	# input layer
+	model = keras.models.Sequential()
+	for i,layer_conf in enumerate(conf):
+		if i==0: # 1st layer: special case, the input shape needs to be defined
+			model.add(keras.layers.Conv1D(filters=layer_conf[0], kernel_size=layer_conf[1], strides=layer_conf[1], padding='valid', input_shape=(timesteps,n_channels)))
+		else:
+			model.add(keras.layers.Conv1D(filters=layer_conf[0], kernel_size=layer_conf[1], strides=layer_conf[1], padding='valid'))
+		model.add(keras.layers.BatchNormalization())
+		model.add(keras.layers.LeakyReLU(alpha=0.1))
+	model.add(keras.layers.Dense(1, activation="sigmoid"))
+
+	opt = keras.optimizers.Adam(learning_rate=0.001)  # Hard fixed
+	model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['mse'])
+	return model
