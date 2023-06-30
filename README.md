@@ -225,7 +225,7 @@ Usage examples can be found in the [examples_retraining.ipynb](https://github.co
 
 ## Exploration
 
-Finally, as a further explotation of this toolbox, we also offer an exploration module, in which you can create your own model. In the [examples_exploration.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_exploration.ipynb) python notebook, you can see how different architectures can be modified by multiple parameters to create infinite number of other models, that can be better adjusted to the need of your desired events. For example, if you are interested in lower frequency events, such as theta cycles, this exploratory module will be of utmost convenience to find an AI architecture that better adapts to the need of your research. Here, we specify the most common parameters to explore for each architecture:
+Finally, as a further explotation of this toolbox, we also offer an exploration module, in which you can create your own model. In the [examples_explore](https://github.com/PridaLab/rippl-AI/blob/main/examples_explore/) folder, you can see how different architectures can be modified by multiple parameters to create infinite number of other models, that can be better adjusted to the need of your desired events. For example, if you are interested in lower frequency events, such as theta cycles, this exploratory module will be of utmost convenience to find an AI architecture that better adapts to the need of your research. Here, we specify the most common parameters to explore for each architecture:
 
 ### 1D-CNN
 * Channels: number of LFP channel 
@@ -263,38 +263,31 @@ Finally, as a further explotation of this toolbox, we also offer an exploration 
 
 # Enviroment setup
 
-On Windows 10:
-  Using the enviroment file 'env_PublicBCG_d.yml':
 1. Install miniconda, following the tutorial: https://docs.conda.io/en/latest/miniconda.html
-2. Launch the anaconda console, typing anaconda promp in the windows search bar.
-3. Navigate to the project directory, using 'cd' to change folders, for example:
-  cd C:\Myprojects\Public_BCG_models
-4. Type in the anaconda prompt: 
-   conda env create -f rippl_AI_env.yml
-5. This will create a enviroment in your miniconda3 enviroments folder, usually:
+2. Launch the anaconda console, typing anaconda promp in the windows/linux search bar.
+3. In the anaconda prompt, type:
+	conda create -n rippl_AI_env python=3.9.15
+Any name can be used
+4. This will create a enviroment in your miniconda3 enviroments folder, usually:
   C:\Users\<your_user>\miniconda3\envs
 6. Check with:
   conda env list
   The enviroment 'rippl_AI_env' should be included in the list
-7. Activate the enviroment with 'conda activate rippl_AI_env', in case you want to launch the scripts from the command prompt. If you are using Visual Studio Code, you need to select the python interpreter 'conda activate rippl_AI_env'
+7. Activate the enviroment with 'conda activate rippl_AI_env', in case you want to launch the scripts from the command prompt. If you are using Visual Studio Code, you need to select the python interpreter 'rippl_AI_env'
 
-If generating the enviroment from the .yml file fails, you can manually install the required packages, creating a new conda enviroment and following the next steps:
-1. conda create -n rippl_AI_env python=3.9.15
-1. conda install pip
-2. pip install numpy
-3. pip install tensorflow
-4. pip install keras
-5. pip install xgboost
-6. pip install -U scikit-learn  (on ubuntu)
-7. pip install imblearn
-8. pip install matplotlib
+Next step after activating the enviroment, is to install every necessary python package:
+1.  conda install pip
+2.  pip install numpy
+3.  pip install tensorflow
+4.  pip install keras
+5.  pip install xgboost
+6.  pip install -U scikit-learn
+7.  pip install imblearn
+8.  pip install matplotlib
+9.  pip install pandas
+10. pip install scipy
 
-If you want to download the lab data from figshare (not normalized, sampled with the original frequency of 30 000 Hz):
+To download the lab data from figshare (not normalized, sampled with the original frequency of 30 000 Hz):
 1. git clone https://github.com/cognoma/figshare.git
 2. cd figshare
 2. python setup.py
-
-If you want to check how the data preprocessing works or implement your own:
-1. pip install pandas
-  
-  https://www.cs.toronto.edu/~duvenaud/distill_bayes_net/public/
