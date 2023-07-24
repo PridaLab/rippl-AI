@@ -440,7 +440,9 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
         windowed_signal= model.predict(LFP,verbose=1)
         for i,window in enumerate(windowed_signal):
             y_predict[i*timesteps:(i+1)*timesteps]=window
-        
+    else:
+    	raise ValueError(f'The introduced architecture -{arch}- does not match the existing ones.')
+
     return(y_predict.reshape(-1))
 
 # Selecting the index functions
