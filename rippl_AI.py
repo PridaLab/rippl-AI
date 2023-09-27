@@ -124,9 +124,11 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
 
         button_save = Button(Saveax, f'Save: {len(get_predictions_index(y,valinit))} events', color=axcolor, hovercolor=hovercolor)
         
-        line.set_xdata(valinit) # Sin esta línea get_xdata devolvía un vector, lo que acía que la primera llamada a plot ripples fallara  Yokse
+        line.set_xdata(valinit) # Sin esta línea get_xdata devolvía un vector, lo que hacía que la primera llamada a plot ripples fallara  Yokse
 
         def plot_ripples():
+            global predictions_index
+
             th=line.get_xdata()
             
             predictions_index=get_predictions_index(y,th)
