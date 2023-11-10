@@ -4,6 +4,8 @@ mplstyle.use('fast')
 from matplotlib.backend_bases import MouseButton
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
+import keras
+import os
 from aux_fcn import process_LFP,prediction_parser, get_predictions_index, middle_stamps,get_click_th, format_predictions,split_data, retraining_parser, save_model,get_performance
 
 # Detection functions
@@ -67,6 +69,21 @@ def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=N
     prob=prediction_parser(norm_LFP,arch,model_number,new_model,n_channels,n_timesteps)
 
     return(prob,norm_LFP)
+
+
+def predict_ens(ens_input,model_name='ENS'):
+
+    ''' Generates the output of the ensemble model specified with the model name
+        Inputs: ens_input :   (n_samples, 5) input of the model, consisting of the inputs of the 5 other 
+                              different architectures
+                model_name:  str, name of the ens model found in the folder 'optimized_models'
+        Output: prob: (n_samples) output of the model, the calculated probability of an event in each sample
+    
+    '''
+    model = keras.models.load_model(os.path.join('optimized_models',model_name))
+    prob = model.predict(ens_input,verbose=1)
+    return prob
+
 
 # Get events initial and end times, in seconds
 
@@ -290,7 +307,6 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         plt.show()
     # If threhold is defined, and no LFP_norm is passsed, the function simply generates the predictions     
     else:
-        print(y,threshold)
         predictions_index=get_predictions_index(y,threshold)
         if file_path:
             format_predictions(file_path,predictions_index,sf)

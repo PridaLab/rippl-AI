@@ -399,7 +399,8 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
         y_predict= np.zeros(shape=(input_len,1,1))
 		# model load
         if new_model==None:
-            clf=fcn_load_pickle(os.path.join('optimized_models',filename)).calibrated_classifiers_[0]
+			
+            clf=fcn_load_pickle(os.path.join('optimized_models',filename))#.calibrated_classifiers_[0]
         else:
             clf=new_model
         windowed_signal= clf.predict_proba(LFP)[:,1]
@@ -441,7 +442,7 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
         for i,window in enumerate(windowed_signal):
             y_predict[i*timesteps:(i+1)*timesteps]=window
     else:
-    	raise ValueError(f'The introduced architecture -{arch}- does not match the existing ones.')
+        raise ValueError(f'The introduced architecture -{arch}- does not match the existing ones.')
 
     return(y_predict.reshape(-1))
 
