@@ -265,29 +265,27 @@ Finally, as a further explotation of this toolbox, we also offer an exploration 
 
 1. Install miniconda, following the tutorial: https://docs.conda.io/en/latest/miniconda.html
 2. Launch the anaconda console, typing anaconda promp in the windows/linux search bar.
-3. In the anaconda prompt, type:
-	conda create -n rippl_AI_env python=3.9.15
-Any name can be used
-4. This will create a enviroment in your miniconda3 enviroments folder, usually:
-  C:\Users\<your_user>\miniconda3\envs
-6. Check with:
-  conda env list
-  The enviroment 'rippl_AI_env' should be included in the list
-7. Activate the enviroment with 'conda activate rippl_AI_env', in case you want to launch the scripts from the command prompt. If you are using Visual Studio Code, you need to select the python interpreter 'rippl_AI_env'
-
-Next step after activating the enviroment, is to install every necessary python package:
-1.  conda install pip
-2.  pip install numpy
-3.  pip install tensorflow
-4.  pip install keras
-5.  pip install xgboost
-6.  pip install -U scikit-learn
-7.  pip install imblearn
-8.  pip install matplotlib
-9.  pip install pandas
-10. pip install scipy
-
+3. In the anaconda prompt, create a conda environment (e.g. `ripple_AI_env`):
+```
+conda create -n rippl_AI_env python=3.9.15
+```
+4. This will create a enviroment in your miniconda3 enviroments folder, usually: `C:\Users\<your_user>\miniconda3\envs`
+5. Check that the enviroment `rippl_AI_env` has been created by typing:
+```
+conda env list
+```
+6. Activate the enviroment with:
+```conda activate rippl_AI_env```
+In case you want to launch the scripts from the command prompt. If you are using Visual Studio Code, you need to select the python interpreter `rippl_AI_env`
+7. Next step after activating the enviroment, is to install every necessary python package:
+```
+conda install pip
+pip install numpy tensorflow keras xgboost imblearn matplotlib pandas scipy
+pip install -U scikit-learn
+```
 To download the lab data from figshare (not normalized, sampled with the original frequency of 30 000 Hz):
-1. git clone https://github.com/cognoma/figshare.git
-2. cd figshare
-2. python setup.py
+```
+git clone https://github.com/cognoma/figshare.git
+cd figshare
+python setup.py
+```
