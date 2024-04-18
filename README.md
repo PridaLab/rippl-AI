@@ -203,22 +203,28 @@ Here, we provide a unique toolbox to easily re-train `model`s and adapt them to 
 * **Extend detection to human** recordings
 
 
-### rippl_AI.retrain()
+### rippl_AI.retrain_model()
 
-The python function `rippl_AI.retrain(LFP, sf, true_events, arch='1DCNN')` of the `rippl_AI` module re-trains the best model of a given `architecture` to re-learn the optimal features to detect the new ground truth events annotated in `true_events`.
+The python function `rippl_AI.retrain(train_data, train_GT, test_data, test_GT, (arch, parameters, save_path))` of the `rippl_AI` module re-trains the best model of a given `architecture` to re-learn the optimal features to detect the new ground truth events annotated in the ground truth events.
 
 * Mandatory inputs:
-	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`).
-	- `sf`: sampling frequency (in Hz).
-	- `channels`: channels to use. For more details, see `channels` of `rippl_AI.predict()` or `aux_fcn.interpolate_channels()`.
-	- `true_events`: ground truth events (`np.array`: `n_groundtruth` x 2). Same format as `predictions`
+	- `train_data`: LFP recorded data that will be used to train the model (`np.array`: `n_samples` x `n_channels`). If several sessions needed, concatenate them to get the specified format.
+	- `train_GT`: ground truth events corresponding to the `train_data` (`np.array`: `n_events` x 2). If several sessions were used, don't forget to readjust the times to properly refer to `train_data`.. Same format as `predictions`.
+	- `test_data`: LFP recorded data that will be used to test the re-trained model (`list()` of `np.array`: `n_samples` x `n_channels`).
+	- `test_GT`: ground truth events corresponding to the `test_data` (`list()` of `np.array`: `n_events` x 2). Event times refer to each element of the `test_data` list.
 
 * Optional inputs:
 	- `arch`: Name of the AI architecture to use (`string`). It can be: `CNN1D`, `CNN2D`, `LSTM`, `SVM` or `XGBOOST`.
-
-* Output:
-	- `new_model`: retrained AI model, based on the `architecture` specified in the input parameter. This model can be then used to predict your own events in your data, by inputing it in `rippl_AI.predict()`.
-
+	- `parameters`: dictionary, with the parameters that will be use in each specific architecture retraining
+                - In 'XGBOOST': not needed
+                - In 'SVM':     
+                    parameters['Undersampler proportion']. Any value between 0 and 1. This parameter eliminates 
+                                    samples where no ripple is present untill the desired proportion is achieved: 
+                                    Undersampler proportion= Positive samples/Negative samples
+                - In 'LSTM', 'CNN1D' and 'CNN2D': 
+                    parameters['Epochs']. The number of times the training data set will be used to train the model
+                    parameters['Training batch']. The number of windows that will be processed before updating the weights
+   	- `save_path`: string, path where the retrained model will be saved
 
 Usage examples can be found in the [examples_retraining.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_retraining.ipynb) python notebook.
 
@@ -280,8 +286,8 @@ In case you want to launch the scripts from the command prompt. If you are using
 7. Next step after activating the enviroment, is to install every necessary python package:
 ```
 conda install pip
-pip install numpy tensorflow keras xgboost imblearn matplotlib pandas scipy
-pip install -U scikit-learn
+pip install tensorflow==2.11 keras==2.11 xgboost==1.6.1 imblearn numpy matplotlib pandas scipy
+pip install -U scikit-learn==1.1.2
 ```
 To download the lab data from figshare (not normalized, sampled with the original frequency of 30 000 Hz):
 ```
