@@ -10,14 +10,15 @@ from aux_fcn import process_LFP,prediction_parser, get_predictions_index, middle
 
 # Detection functions
 
-def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=None,n_channels=None,n_timesteps=None):
+def predict(LFP,sf,d_sf=1250,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=None,n_channels=None,n_timesteps=None):
     ''' returns the requested architecture and model number output probability
 
     Mandatory inputs:
         LFP: (np.array: n_samples x n_channels). LFP_recorded data. Although there are no restrictions in n_channels, 
             some considerations should be taken into account (see channels)
             Data does not need to be normalized, because it will be internally be z-scored (see aux_fcn.process_LFP())
-        sf: (int) sampling frequency (in Hz)
+        sf: (int) Original sampling frequency (in Hz)
+        d_sf: (int) Desired subsampling frequency (in Hz)
     Optional inputs:
         arch: Name of the AI architecture to use (string). It can be: CNN1D, CNN2D, LSTM, SVM or XGBOOST.
         model_number: Number of the model to use (integer). There are five different models for each architecture, 
@@ -47,7 +48,7 @@ def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=N
             to adapt the optimized models to your own data (see rippl_AI.retrain() for more details), you can input the new_model 
             here to use it to predict your events.
             IMPORTANT: if you are using new_model, the data wont be processed, so make sure to have your data z-scored, 
-            subsampled at 1250 Hz and with the correct channels before invoking predict, for example using the process_LFP
+            subsampled at your subsampling freq and with the correct channels before calling predict, for example using the process_LFP
             function  
             IMPORTANT: if you are using a new_model, you have to pass as arguments its number of channels andthe
             timesteps for window
@@ -57,13 +58,13 @@ def predict(LFP,sf,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=N
         SWR_prob: model output for every sample of the LFP (np.array: n_samples x 1). It can be interpreted as the confidence 
             or probability of a SWR event, so values close to 0 mean that the model is certain that there are not SWRs,
             and values close to 1 that the model is very sure that there is a SWR hapenning.
-        LFP_norm: LFP data used as an input to the model (np.array: n_samples x len(channels)). It is undersampled to 1250Hz, 
+        LFP_norm: LFP data used as an input to the model (np.array: n_samples x len(channels)). It is undersampled, 
             z-scored, and transformed to used the channels specified in channels.
     A Rubio, 2023 LCN
     '''
     #channels=opt['channels']
     if new_model==None:
-        norm_LFP=process_LFP(LFP,sf,channels)
+        norm_LFP=process_LFP(LFP,sf,d_sf,channels)
     else: # Data is supossedly already normalized when using new model
         norm_LFP=LFP
     prob=prediction_parser(norm_LFP,arch,model_number,new_model,n_channels,n_timesteps)
@@ -96,7 +97,7 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
                 file_path:   str, absolute path of the folder where the .txt with the predictions will be generated
                              Leave empty if you don't want to generate the file
                 win_size:    int, length of the displayed ripples in miliseconds
-                sf:          int, sampling frequency (Hz) of the LFP_norm/model output. Change if different than 1250
+                sf:          int, sampling frequency (Hz) of the LFP_norm/model output. Change if used is different than 1250
         Output: predictions: (n_events,2), returns the time (seconds) of the begining and end of each vents
         4 possible use cases, depending on which parameter combination is used when calling the function.
             1.- (y): a histogram of the output is displayed, you drag a vertical bar to selecct your th
@@ -105,7 +106,7 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
             4.- (y,LFP_norm,th): same case as 3, but the initial location of the bar is th
     
     '''
-    global predictions_index
+    global predictions_index, line
     # If LFP_norm is passed, plot detected ripples
     if type(LFP_norm)==np.ndarray:
 
@@ -140,13 +141,11 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         Saveax = plt.axes([0.375, 0.47, 0.095, 0.04])
 
         button_save = Button(Saveax, f'Save: {len(get_predictions_index(y,valinit))} events', color=axcolor, hovercolor=hovercolor)
-        
-        line.set_xdata(valinit) # Sin esta línea get_xdata devolvía un vector, lo que hacía que la primera llamada a plot ripples fallara  Yokse
 
         def plot_ripples():
             global predictions_index
 
-            th=line.get_xdata()
+            th=line.get_xdata()[0]
             
             predictions_index=get_predictions_index(y,th)
             n_pred=len(predictions_index)
@@ -219,7 +218,7 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         def generate_pred(event):
             global predictions_index
             # Generar las predicciones con el th guardado
-            th=line.get_xdata()
+            th=line.get_xdata()[0]
             predictions_index=get_predictions_index(y,th)
 
             if file_path:  
@@ -231,15 +230,16 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         ############################
         # Click events
         def on_click_press(event):
+            global line
             if event.button is MouseButton.LEFT:
                 clicked_ax=event.inaxes
                 if clicked_ax==axes['A']:
                     th=get_click_th(event)
-                    line.set_xdata(th)
+                    line.remove()
+                    line=axes['A'].axvline(th,c='k')
                     clicked_ax.set_title(f'Th: {th:1.3f}')
                     n_events=len(get_predictions_index(y,th))
                     button_save.label.set_text(f"Save: {n_events} events")
-                    #plt.show()
 
         plt.connect('button_press_event',on_click_press)
         plt.connect('motion_notify_event',on_click_press)
@@ -248,7 +248,6 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
                 clicked_ax=event.inaxes
                 if clicked_ax==axes['A']:
                     plot_ripples()
-                    #plt.show()
         plt.connect('button_release_event',on_click_release)
 
         def plot_button_click(event):
@@ -256,7 +255,7 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
             plot_ripples()
 
         button_plot.on_clicked(plot_button_click)
-        plt.show()
+        plt.show(block=True)
 
     # If no threhold is defined, choose your own with the GUI,without LFP_norm plotting
     elif threshold==None:
@@ -270,7 +269,6 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         ax.set_title(f'Th: {valinit}')
 
         line=ax.axvline(valinit,c='k')
-        line.set_xdata(valinit)
         # Button definition
         resetax = plt.axes([0.7, 0.5, 0.12, 0.075])
         button = Button(resetax, f'Save\n{len(get_predictions_index(y,valinit))} events', color=axcolor, hovercolor=hovercolor)
@@ -281,7 +279,7 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         def generate_pred(event):
             # Generar las predicciones con el th guardado
             global predictions_index
-            th=line.get_xdata()
+            th=line.get_xdata()[0]
             predictions_index=get_predictions_index(y,th)
             if file_path:  # Si la linea del archivo no esta vacia
                 format_predictions(file_path,predictions_index,sf)
@@ -291,11 +289,13 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         
         
         def on_click(event):
+            global line
             if event.button is MouseButton.LEFT:
                 clicked_ax=event.inaxes
                 if clicked_ax==ax:
                     th=get_click_th(event)
-                    line.set_xdata(th)
+                    line.remove()
+                    line=ax.axvline(th,c='k')
                     ax.set_title(f'Th: {th:1.3f}')
 
                     n_events=len(get_predictions_index(y,th))
@@ -313,7 +313,7 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
     return (predictions_index/sf)
 
 # Prepares data for training, used in retraining and exploring notebooks
-def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,channels=np.arange(0,8)):
+def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,d_sf=1250,channels=np.arange(0,8)):
     '''
         Prepares data for training: subsamples, interpolates (if required), z-scores and concatenates 
         the train/test data passed. Does the same for the validation data, but without concatenating
@@ -323,7 +323,8 @@ def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,channel
             (A): quizá se podría quitar esto, lo de formatear tambien las de validacion 
             val_LFPs:    (n_val_sessions) list: with the raw LFP of the sessions that will be used in validation
             val_GTs:     (n_val_sessions) list: with the GT events of n validation sessions
-            sf:          (int) original sampling frequency of the data TODO (consultar con Andrea): make it an array, so every session could have a different sf
+            sf:          (int) original sampling frequency of the data in Hz
+            sf:          (int) desired downsample frequency of the data in Hz
             channels:    (n_channels) np.array. Channels that will be used to generate data. Check interpolate_channels for more information
         output:
             retrain_LFP: (n_samples x n_channels): sumbsampled, z-scored, interpolated and concatenated data from all the training sessions
@@ -342,29 +343,29 @@ def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,channel
         # 1st session in the array
         print('Original training data shape: ',LFP.shape)
         if retrain_LFP==[]:
-            retrain_LFP=process_LFP(LFP,sf,channels)
-            offset=len(retrain_LFP)/1250
+            retrain_LFP=process_LFP(LFP,sf,d_sf,channels)
+            offset=len(retrain_LFP)/d_sf
             retrain_GT=GT
         # Append the rest of the sessions, taking into account the length (in seconds) 
         # of the previous sessions, to cocatenate the events' times
         else:
-            aux_LFP=process_LFP(LFP,sf,channels)
+            aux_LFP=process_LFP(LFP,sf,d_sf,channels)
             retrain_LFP=np.vstack([retrain_LFP,aux_LFP])
             retrain_GT=np.vstack([retrain_GT,GT+offset])
-            offset+=len(aux_LFP)/1250
+            offset+=len(aux_LFP)/d_sf
     # Each validation session LFP will be normalized, etc and stored in an array
     #  the GT needs no further treatment
     norm_val_GT=[]
     for LFP in val_LFPs:
         print('Original validation data shape: ',LFP.shape)
-        norm_val_GT.append(process_LFP(LFP,sf,channels))
+        norm_val_GT.append(process_LFP(LFP,sf,d_sf,channels))
 
 
     return retrain_LFP, retrain_GT , norm_val_GT, val_GTs
 
 # Retrain the best model of each architecture, and save it in the path specified in save_path.
 #  also plots the trai, test and validation performance
-def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None):
+def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250):
     '''
         Retrains the best model of the specified architecture with the retrain data and the specified parameters. Performs validation if validation data is provided, and plots the train, test and validation performance.
         inputs:
@@ -393,14 +394,14 @@ def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,sav
 
     '''
     # Do the train/test split. Feel free to try other proportions
-    LFP_test,events_test,LFP_train,events_train=split_data(LFP_retrain,GT_retrain,split=0.7)
+    LFP_test,events_test,LFP_train,events_train=split_data(LFP_retrain,GT_retrain,split=0.7,sf=d_sf)
 
     print(f'Number of validation sessions: {len(LFP_val)}') #TODO: for shwoing length and events
     print(f'Shape of train data: {LFP_train.shape}, Number of train events: {events_train.shape[0]}')
     print(f'Shape of test data: {LFP_test.shape}, Number of test events: {events_test.shape[0]}')
 
     # prediction parser returns the retrained model, the output predictions probabilities
-    model,y_pred_train,y_pred_test=retraining_parser(arch,LFP_train,events_train,LFP_test,events_test,params=parameters)
+    model,y_pred_train,y_pred_test=retraining_parser(arch,LFP_train,events_train,LFP_test,events_test,params=parameters,d_sf=d_sf)
 
     # Save model if save_path is not empty
     if save_path:
@@ -427,14 +428,14 @@ def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,sav
         timesteps=16
     
     for LFP in LFP_val:
-        val_pred.append(predict(LFP,sf=1250,arch=arch,new_model=model,n_channels=n_channels,n_timesteps=timesteps)[0])
+        val_pred.append(predict(LFP,sf=d_sf,arch=arch,new_model=model,n_channels=n_channels,n_timesteps=timesteps)[0])
     # Extract and plot the train and test performance
     th_arr=np.linspace(0.1,0.9,9)
     F1_train=np.empty(shape=len(th_arr))
     F1_test=np.empty(shape=len(th_arr))
     for i,th in enumerate(th_arr):
-        pred_train_events=get_predictions_index(y_pred_train,th)/1250
-        pred_test_events=get_predictions_index(y_pred_test,th)/1250
+        pred_train_events=get_predictions_index(y_pred_train,th)/d_sf
+        pred_test_events=get_predictions_index(y_pred_test,th)/d_sf
         _,_,F1_train[i],_,_,_=get_performance(pred_train_events,events_train,verbose=False)
         _,_,F1_test[i],_,_,_=get_performance(pred_test_events,events_test,verbose=False)
     
@@ -453,7 +454,7 @@ def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,sav
     F1_val=np.zeros(shape=(len(LFP_val),len(th_arr)))
     for j,pred in enumerate(val_pred):
         for i,th in enumerate(th_arr):
-            pred_val_events=get_predictions_index(pred,th)/1250
+            pred_val_events=get_predictions_index(pred,th)/d_sf
             _,_,F1_val[j,i],_,_,_=get_performance(pred_val_events,GT_val[j],verbose=False)
 
     for i in range(len(LFP_val)):
