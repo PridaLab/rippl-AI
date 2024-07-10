@@ -78,7 +78,7 @@ The `rippl_AI.predict()` input and output variables are:
 
 * Optional inputs:
 	- `arch`: Name of the AI architecture to use (`string`). It can be: `CNN1D`, `CNN2D`, `LSTM`, `SVM` or `XGBOOST`.
-	- `model_number`: Number of the model to use (`integer`). There are five different models for each architecture, sorted by performance, being `1` the best, and `5` the last.
+	- `model_number`: Number of the model to use (`integer`). There are six different models for each architecture, sorted by performance, being `1` the best, and `5` the last. The `6` model can be used if single-channel data needs to be used. 
 	- `channels`: Channels to be used for detection (`np.array` or `list`: `1` x `8`). This is the most senstive parameter, because models will be looking for specific spatial features over all channels. Counting starts in `0`. The two main remarks are:
 		* All models have been trained to look at features in the pyramidal layer (SP), so for them to work at their maximum potential, the selected channels would ideally be centered in the SP, with a postive deflection on the first channels (upper channels) and a negative deflection on the last channels (lower channels). The image above can be used as a visual reference of how to choose channels.
 		* For all combinations of `architectures` and `model_numbers`, `channels` **has to be of size 8**. There is only one exception, for `architecture = 2D-CNN` with `models = {3, 4, 5}`, that needs to have **3 channels**. 

@@ -21,8 +21,9 @@ def predict(LFP,sf,d_sf=1250,arch='CNN1D',model_number=1,channels=np.arange(8),n
         d_sf: (int) Desired subsampling frequency (in Hz)
     Optional inputs:
         arch: Name of the AI architecture to use (string). It can be: CNN1D, CNN2D, LSTM, SVM or XGBOOST.
-        model_number: Number of the model to use (integer). There are five different models for each architecture, 
-            sorted by performance, being 1 the best, and 5 the last.
+        model_number: Number of the model to use (integer). There are six different models for each architecture, 
+            sorted by performance, 1 being the best, and 5 the last. A sixth model is included if single-channel 
+            data needs to be used
         channels: Channels to be used for detection (np.array or list: 1 x 8). This is the most senstive parameter,
             because models will be looking for specific spatial features over all channels. Counting starts in 0. 
             The two main remarks are: 

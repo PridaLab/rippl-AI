@@ -384,11 +384,9 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
         n_channels=n_channels
         timesteps=n_timesteps
     
-    #print(f'Validating arquitecture {arch} using {n_channels} channels and {timesteps} timesteps')
     # Input shape: number of channels
 
     input_len=LFP.shape[0]
-    # Make sure the input data and the model number of 
     assert n_channels==LFP.shape[1],f'The model expects {n_channels} channels and the data has {LFP.shape[1]}'
     # Input shape: timesteps
     if arch=='XGBOOST':
