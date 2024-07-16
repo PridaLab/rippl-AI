@@ -11,58 +11,76 @@ from aux_fcn import process_LFP,prediction_parser, get_predictions_index, middle
 # Detection functions
 
 def predict(LFP,sf,d_sf=1250,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=None,n_channels=None,n_timesteps=None):
-    ''' returns the requested architecture and model number output probability
+    ''' 
+    predict(LFP,sf,d_sf=1250,arch='CNN1D',model_number=1,channels=np.arange(8),new_model=None,n_channels=None,n_timesteps=None)
+
+    Returns the requested architecture and model number output probability
 
     Mandatory inputs:
-        LFP: (np.array: n_samples x n_channels). LFP_recorded data. Although there are no restrictions in n_channels, 
-            some considerations should be taken into account (see channels)
-            Data does not need to be normalized, because it will be internally be z-scored (see aux_fcn.process_LFP())
+    -----------------
+        LFP: (np.array: n_samples x n_channels). LFP_recorded data. Although there 
+              are no restrictions in n_channels, some considerations should be taken into 
+              account (see channels). Data does not need to be normalized, because it will 
+              be internally be z-scored (see aux_fcn.process_LFP())
         sf: (int) Original sampling frequency (in Hz)
-        d_sf: (int) Desired subsampling frequency (in Hz)
+
     Optional inputs:
-        arch: Name of the AI architecture to use (string). It can be: CNN1D, CNN2D, LSTM, SVM or XGBOOST.
-        model_number: Number of the model to use (integer). There are six different models for each architecture, 
-            sorted by performance, 1 being the best, and 5 the last. A sixth model is included if single-channel 
-            data needs to be used
-        channels: Channels to be used for detection (np.array or list: 1 x 8). This is the most senstive parameter,
-            because models will be looking for specific spatial features over all channels. Counting starts in 0. 
-            The two main remarks are: 
-                - All models have been trained to look at features in the pyramidal layer (SP), so for them to work 
-                    at their maximum potential, the selected channels would ideally be centered in the SP, 
-                    with a postive deflection on the first channels (upper channels) and a negative deflection on 
-                    the last channels (lower channels). The image TODO (link a la imagen)
-                - For all combinations of architectures and model_numbers, channels has to be of size 8. 
-                    There is only one exception, for architecture = 2D-CNN with models = {3, 4, 5}, that needs to have 3 channels.
-                -If you are using a high-density probe, then we recommend to use equi-distant channels from the beginning
-                    to the end of the SP. For example, for Neuropixels in mice, a good set of channels would be 
-                    pyr_channel + [-8,-6,-4,-2,0,2,4,6].
-                - In the case of linear probes or tetrodes, there are not enough density to cover the SP with 8 channels. 
-                    For that, interpolation or recorded channels can be done without compromising performance. 
-                    New artificial interpolated channels will be add to the LFP wherever there is a -1 in channels.
-                    TODO: igual el siguiente párrafo se pude quitar,
-                    For example, if pyr_channel=11 in your linear probe, so that 10 is in stratum oriens and 12 in 
-                    stratum radiatum, then we could define channels=[10,-1,-1,11,-1,-1,-1,12], where 2nd and 3rd channels
-                    will be an interpolation of SO and SP channels, and 5th to 7th an interpolation of SP and SR channels.
-                    For tetrodes, organising channels according to their spatial profile is very convenient to assure best 
-                    performance. These interpolations are done using the function aux_fcn.interpolate_channels().
+    ----------------
+        d_sf: (int) Desired subsampling frequency (in Hz)
+        arch: Name of the AI architecture to use (string). 
+              It can be: CNN1D, CNN2D, LSTM, SVM or XGBOOST.
+        model_number: Number of the model to use (integer). There are six different models 
+              for each architecture, sorted by performance, 1 being the best, and 5 the last. 
+              A sixth model is included if single-channel data needs to be used.
+        channels: Channels to be used for detection (np.array or list: 1 x 8). This is the most 
+              senstive parameter, because models will be looking for specific spatial features 
+              over all channels. Counting starts in 0. 
+              The two main remarks are: 
+                - All models have been trained to look at features in the pyramidal layer (SP), 
+                  so for them to work at their maximum potential, the selected channels would  
+                  ideally be centered in the SP, with a postive deflection on the first channels  
+                  (upper channels) and a negative deflection on the last channels (lower channels).  
+                  The image TODO (link a la imagen)
+                - For all combinations of architectures and model_numbers, channels has to be  
+                  of size 8. There is only one exception, for architecture = 2D-CNN with  
+                  models = {3, 4, 5}, that needs to have 3 channels.
+                - If you are using a high-density probe, then we recommend to use equi-distant 
+                  channels from the beginningto the end of the SP. For example, for Neuropixels 
+                  in mice, a good set of channels would be pyr_channel + [-8,-6,-4,-2,0,2,4,6].
+                - In the case of linear probes or tetrodes, there are not enough density to cover 
+                  the SP with 8 channels. For that, interpolation or recorded channels can be 
+                  done without compromising performance. New artificial interpolated channels 
+                  will be add to the LFP wherever there is a -1 in channels.
+                  TODO: igual el siguiente párrafo se pude quitar,
+                  For example, if pyr_channel=11 in your linear probe, so that 10 is in stratum 
+                  oriens and 12 in stratum radiatum, then we could define channels=[10,-1,-1,11,-1,-1,-1,12],
+                  where 2nd and 3rd channelswill be an interpolation of SO and SP channels, and 
+                  5th to 7th an interpolation of SP and SR channels.For tetrodes, organising 
+                  channels according to their spatial profile is very convenient to assure best 
+                  performance. These interpolations are done using the function aux_fcn.interpolate_channels().
         new_model: Other re-trained model you want to use for detection. If you have used our re-train function 
-            to adapt the optimized models to your own data (see rippl_AI.retrain() for more details), you can input the new_model 
-            here to use it to predict your events.
-            IMPORTANT: if you are using new_model, the data wont be processed, so make sure to have your data z-scored, 
-            subsampled at your subsampling freq and with the correct channels before calling predict, for example using the process_LFP
-            function  
-            IMPORTANT: if you are using a new_model, you have to pass as arguments its number of channels andthe
-            timesteps for window
-                n_channels= int, the number of channels of the new model
-                timesteps = int, the number of timesteps per window of the new model
+              to adapt the optimized models to your own data (see rippl_AI.retrain() for more details),
+              you can input the new_model here to use it to predict your events.
+              IMPORTANT! If you are using new_model, the data wont be processed, so make sure to 
+                         have your data z-scored, subsampled at your subsampling freq and with the 
+                         correct channels before calling predict, for example using the process_LFPfunction  
+              IMPORTANT! If you are using a new_model, you have to pass as arguments its number of 
+                         channels and the timesteps for window
+        n_channels: (int) the number of channels of the new model
+        timesteps: (int) the number of timesteps per window of the new model
+
     Output:
-        SWR_prob: model output for every sample of the LFP (np.array: n_samples x 1). It can be interpreted as the confidence 
-            or probability of a SWR event, so values close to 0 mean that the model is certain that there are not SWRs,
-            and values close to 1 that the model is very sure that there is a SWR hapenning.
-        LFP_norm: LFP data used as an input to the model (np.array: n_samples x len(channels)). It is undersampled, 
-            z-scored, and transformed to used the channels specified in channels.
+    -------
+        SWR_prob: model output for every sample of the LFP (np.array: n_samples x 1). 
+                 It can be interpreted as the confidence or probability of a SWR event, so values 
+                 close to 0 mean that the model is certain that there are not SWRs, and values close 
+                 to 1 that the model is very sure that there is a SWR hapenning.
+        LFP_norm: LFP data used as an input to the model (np.array: n_samples x len(channels)). 
+                 It is undersampled, z-scored, and transformed to used the channels specified in channels.
+
     A Rubio, 2023 LCN
     '''
+
     #channels=opt['channels']
     if new_model==None:
         norm_LFP=process_LFP(LFP,sf,d_sf,channels)
@@ -74,12 +92,21 @@ def predict(LFP,sf,d_sf=1250,arch='CNN1D',model_number=1,channels=np.arange(8),n
 
 
 def predict_ens(ens_input,model_name='ENS'):
+    '''
+    predict_ens(ens_input,model_name='ENS')
 
-    ''' Generates the output of the ensemble model specified with the model name
-        Inputs: ens_input :   (n_samples, 5) input of the model, consisting of the inputs of the 5 other 
-                              different architectures
-                model_name:  str, name of the ens model found in the folder 'optimized_models'
-        Output: prob: (n_samples) output of the model, the calculated probability of an event in each sample
+    Generates the output of the ensemble model specified with the model name
+    
+    Inputs: 
+    -------
+        ens_input: (n_samples, 5) input of the model, consisting of the inputs of 
+            the 5 other different architectures
+        model_name:  str, name of the ens model found in the folder 'optimized_models'
+
+    Outputs:
+    --------
+        prob: (n_samples) output of the model, the calculated probability of 
+            an event in each sample
     
     '''
     model = keras.models.load_model(os.path.join('optimized_models',model_name))
@@ -87,21 +114,31 @@ def predict_ens(ens_input,model_name='ENS'):
     return prob
 
 
-# Get events initial and end times, in seconds
 
 def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=None):
+    ''' 
+    get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=None)
+    
+    Get events initial and end times, in seconds
+    Displays a GUI to help you select the best threshold.
 
-    ''' Displays a GUI to help you select the best threshold.
-        Inputs: y :          (n,) one dimensional output signal of the model
-                threshold:   float, threshold of predictions
-                LFP_norm:        (n,n_channels), normalized input signal of the model
-                file_path:   str, absolute path of the folder where the .txt with the predictions will be generated
-                             Leave empty if you don't want to generate the file
-                win_size:    int, length of the displayed ripples in miliseconds
-                sf:          int, sampling frequency (Hz) of the LFP_norm/model output. Change if used is different than 1250
-        Output: predictions: (n_events,2), returns the time (seconds) of the begining and end of each vents
-        4 possible use cases, depending on which parameter combination is used when calling the function.
-            1.- (y): a histogram of the output is displayed, you drag a vertical bar to selecct your th
+    Inputs:
+    -------
+        y: (n,) one dimensional output signal of the model
+        threshold: (float), threshold of predictions
+        LFP_norm: (n,n_channels), normalized input signal of the model
+        file_path: (str), absolute path of the folder where the .txt with the predictions 
+            will be generated. Leave empty if you don't want to generate the file
+        win_size: (int), length of the displayed ripples in miliseconds
+        sf: (int), sampling frequency (Hz) of the LFP_norm/model output. 
+            Change if used is different than 1250
+
+    Output:
+    -------
+
+        predictions: (n_events,2), returns the time (seconds) of the begining and end of each event
+            4 possible use cases, depending on which parameter combination is used when calling the function.
+            1.- (y): a histogram of the output is displayed, you drag a vertical bar to select your th
             2.- (y,th): no GUI is displayed, the predictions are gererated automatically
             3.- (y,LFP_norm): some examples of detected events are displayed next to the histogram
             4.- (y,LFP_norm,th): same case as 3, but the initial location of the bar is th
@@ -316,22 +353,29 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
 # Prepares data for training, used in retraining and exploring notebooks
 def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,d_sf=1250,channels=np.arange(0,8)):
     '''
-        Prepares data for training: subsamples, interpolates (if required), z-scores and concatenates 
-        the train/test data passed. Does the same for the validation data, but without concatenating
-        inputs:
-            train_LFPs:  (n_train_sessions) list with the raw LFP of n sessions that will be used to train
-            train_GTs:   (n_train_sessions) list with the GT events of n sessions, in the format [ini end] in seconds
-            (A): quizá se podría quitar esto, lo de formatear tambien las de validacion 
-            val_LFPs:    (n_val_sessions) list: with the raw LFP of the sessions that will be used in validation
-            val_GTs:     (n_val_sessions) list: with the GT events of n validation sessions
-            sf:          (int) original sampling frequency of the data in Hz
-            sf:          (int) desired downsample frequency of the data in Hz
-            channels:    (n_channels) np.array. Channels that will be used to generate data. Check interpolate_channels for more information
-        output:
-            retrain_LFP: (n_samples x n_channels): sumbsampled, z-scored, interpolated and concatenated data from all the training sessions
-            retrain_GT:  (n_events x 2): concatenation of all the events in the training sessions
-            norm_val_GT: (n_val_sessions) list: list with the normalized LFP of all the val sessions
-            val_GTs:     (n_val_sessions) list: Gt events of each val sessions
+    prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,d_sf=1250,channels=np.arange(0,8))
+
+    Prepares data for training: subsamples, interpolates (if required), z-scores and concatenates 
+    the train/test data passed. Does the same for the validation data, but without concatenating
+
+    Inputs:
+    -------
+        train_LFPs:  (n_train_sessions) list with the raw LFP of n sessions that will be used to train
+        train_GTs:   (n_train_sessions) list with the GT events of n sessions, in the format [ini end] in seconds
+        (A): quizá se podría quitar esto, lo de formatear tambien las de validacion 
+        val_LFPs:    (n_val_sessions) list: with the raw LFP of the sessions that will be used in validation
+        val_GTs:     (n_val_sessions) list: with the GT events of n validation sessions
+        sf:          (int) original sampling frequency of the data in Hz
+        sf:          (int) desired downsample frequency of the data in Hz
+        channels:    (n_channels) np.array. Channels that will be used to generate data. Check interpolate_channels for more information
+    
+    Output:
+    -------
+        retrain_LFP: (n_samples x n_channels): sumbsampled, z-scored, interpolated and concatenated data from all the training sessions
+        retrain_GT:  (n_events x 2): concatenation of all the events in the training sessions
+        norm_val_GT: (n_val_sessions) list: list with the normalized LFP of all the val sessions
+        val_GTs:     (n_val_sessions) list: Gt events of each val sessions
+
     A Rubio LCN 2023
 
     '''
@@ -368,29 +412,36 @@ def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,d_sf=12
 #  also plots the trai, test and validation performance
 def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250):
     '''
-        Retrains the best model of the specified architecture with the retrain data and the specified parameters. Performs validation if validation data is provided, and plots the train, test and validation performance.
-        inputs:
-            LFP_retrain:  (n_samples x n_channels)  concatenated LFP of all the trained sessions
-            GT_retrain:   (n_events x 2) list with the concatenated GT events times of n sessions, in the format [ini end] in seconds
-            arch:          string, architecture of the model to be retrained
-            LFP_val:    (n_val_sessions) list: with the normalized LFP of the sessions that will be used in validation
-            GT_val:     (n_val_sessions) list: with the GT events of the validation sessions
-            Optional inputs
-                parameters: dictionary, with the parameters that will be use in each specific architecture retraining
-                - In 'XGBOOST': not needed
-                - In 'SVM':     
-                    parameters['Undersampler proportion']. Any value between 0 and 1. This parameter eliminates 
-                                    samples where no ripple is present untill the desired proportion is achieved: 
-                                    Undersampler proportion= Positive samples/Negative samples
-                - In 'LSTM', 'CNN1D' and 'CNN2D': 
-                    parameters['Epochs']. The number of times the training data set will be used to train the model
-                    parameters['Training batch']. The number of windows that will be processed before updating the weights
-                save_path: string, path where the retrained model will be saved
-        output:
-            retrain_LFP: (n_samples x n_channels): sumbsampled, z-scored, interpolated and concatenated data from all the training sessions
-            retrain_GT:  (n_events x 2): concatenation of all the events in the training sessions
-            norm_val_GT: (n_val_sessions) list: list with the normalized LFP of all the val sessions
-            val_GTs:     (n_val_sessions) list: Gt events of each val sessions
+    retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250)
+
+    Retrains the best model of the specified architecture with the retrain data and the specified parameters. Performs validation if validation data is provided, and plots the train, test and validation performance.
+    
+    Inputs:
+    -------
+        LFP_retrain:  (n_samples x n_channels)  concatenated LFP of all the trained sessions
+        GT_retrain:   (n_events x 2) list with the concatenated GT events times of n sessions, in the format [ini end] in seconds
+        arch:          string, architecture of the model to be retrained
+        LFP_val:    (n_val_sessions) list: with the normalized LFP of the sessions that will be used in validation
+        GT_val:     (n_val_sessions) list: with the GT events of the validation sessions
+        Optional inputs
+            parameters: dictionary, with the parameters that will be use in each specific architecture retraining
+            - In 'XGBOOST': not needed
+            - In 'SVM':     
+                parameters['Undersampler proportion']. Any value between 0 and 1. This parameter eliminates 
+                                samples where no ripple is present untill the desired proportion is achieved: 
+                                Undersampler proportion= Positive samples/Negative samples
+            - In 'LSTM', 'CNN1D' and 'CNN2D': 
+                parameters['Epochs']. The number of times the training data set will be used to train the model
+                parameters['Training batch']. The number of windows that will be processed before updating the weights
+            save_path: string, path where the retrained model will be saved
+    
+    Output:
+    -------
+        retrain_LFP: (n_samples x n_channels): sumbsampled, z-scored, interpolated and concatenated data from all the training sessions
+        retrain_GT:  (n_events x 2): concatenation of all the events in the training sessions
+        norm_val_GT: (n_val_sessions) list: list with the normalized LFP of all the val sessions
+        val_GTs:     (n_val_sessions) list: Gt events of each val sessions
+    
     A Rubio LCN 2023
 
     '''

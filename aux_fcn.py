@@ -336,6 +336,7 @@ def process_LFP(LFP,sf,d_sf,channels):
                     If channels contains any -1, interpolation will be also applied. 
                     See channels of rippl_AI.predict(), or aux_fcn.interpolate_channels() for more information.
     Output:
+    -------
         LFP_norm: normalized LFP (np.array: n_samples x len(channels)). It is undersampled to d_sf Hz, z-scored, 
                     and transformed to used the channels specified in channels.
     A Rubio, LCN 2023
@@ -355,7 +356,9 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
     '''
     [y] = prediction_parser(LFP,model_sel) 
     Computes the output of the model passed in params \n
-    Inputs:		
+    
+    Inputs:
+    -------
         LFP:			 [n x 8] lfp data,subsampled and z-scored 
      Optional inputs:
         arch:   		 string containing the name of the architecture 
@@ -365,7 +368,9 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
             *If a new model is used, n_channels and n_timesteps need to be passed too*
             n_channels:  int, number of channels in new model
             n_timesteps:  int, number of timesteps per window of new model 
-    Output: 
+    
+    Output:
+    -------
         y: (n) shape array with the output of the chosen model
     A Rubio, LCN 2023
     '''
@@ -456,15 +461,19 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
 
 def get_predictions_index(predictions,threshold=0.5):
     '''
-        [pred_indexes] = get_predictions_index(predictions, thershold)\n
-        Returns the begining and ending samples of the events above a given threshold\n
-        Inputs:
-            predictions:	X, array with the continuous output of a model (even the Gt)
-            threshold:		float, signal intervals above this value will be considered events
-        
-        Output:		
-            pred_indexes:	Nx2, array containing the begining and ending index sample of the events
-        '''
+    [pred_indexes] = get_predictions_index(predictions, thershold)
+
+    Returns the begining and ending samples of the events above a given threshold
+    
+    Inputs:
+    -------
+        predictions:	X, array with the continuous output of a model (even the Gt)
+        threshold:		float, signal intervals above this value will be considered events
+    
+    Output:
+    -------
+        pred_indexes:	Nx2, array containing the begining and ending index sample of the events
+    '''
     aux=np.copy(predictions)
     aux[aux>=threshold]=1
     aux[aux<threshold]=0
@@ -502,11 +511,16 @@ def get_click_th(event):
 
 def format_predictions(path,preds,d_sf):
     ''' 
-    format_predictions(path,preds,d_sf) writes a .txt with the initial and end times of events in seconds 
-    inputs:
+    format_predictions(path,preds,d_sf) 
+
+    Writes a .txt with the initial and end times of events in seconds 
+
+    Inputs:
+    -------
         path       str, absolute path of the file that will be created
         preds      (2,n_events) np.array with the initial and end timestamps of the events
         d_sf         int, sampling frequency of the data
+
     A Rubio, LCN 2023
     '''
     f=open(path,'w')
@@ -529,12 +543,14 @@ def get_performance(pred_events, true_events, threshold=0, exclude_matched_trues
     Computes all these measures given a cell array with boundaries of pred_events
 
     Inputs:
+    -------
         pred_events		 Nx2 matrix with start and end of pred events (seconds)
         true_events		 Mx2 matrix with start and end of true events (seconds)
         threshold		   Threshold to IoU. By default is 0
         exclude_matched_trues False by defaut (one true can match many predictions)
 
     Output:
+    -------
         precision		   Metric indicating the percentage of correct 
                             predictions out of total predictions
         recall			  Metric indicating the percentage of true events 
@@ -599,10 +615,12 @@ def intersection_over_union(x, y):
     x and y.
     
     Inputs:
+    -------
       x	 Nx2 array with beginnings and ends of 1D events
       y	 Mx2 array with beginnings and ends of 1D events
     
     Output:
+    -------
       IOU   NxM array with intersections over unions
       IOUx  (optional) Nx1 array with indexes of y events with maximal IOU 
             It's zero if IOU=0 for all y events
@@ -667,20 +685,27 @@ def interpolate_channels(data, ch_map):
 # Retraining auxiliary functions
 def split_data(x,GT,window_dur=60,d_sf=1250,split=0.7):
     '''
-    [x_test,y_test,x_train,y_train] = split_data(x,y,window_dur,d_sf,split)\n
-    Performs the data train-test split, with the proportion specified in 'split' going to train. The data is shuffled in windows of 'window_dur' seconds\n
+    [x_test,y_test,x_train,y_train] = split_data(x,y,window_dur,d_sf,split)
+
+    Performs the data train-test split, with the proportion specified in 'split' 
+    going to train. The data is shuffled in windows of 'window_dur' seconds
+    
     Inputs:
+    -------
         x:			[n X n_channels] matrix with the LFP values of the session
         GT:			[n events x 2]	initial and end times of each events
-        window_dur: float, length in seconds of the chunks that will be asigned randomly to train or validation subsets
-        d_sf:			int, sampling frequency of the passed data
-        split:		float, proportion of windows that will be asigned to the train subset (the final proportion will diverge, being random)
+        window_dur: float, length in seconds of the chunks that will be asigned 
+                    randomly to train or validation subsets
+        d_sf:		(int), sampling frequency of the passed data
+        split:		float, proportion of windows that will be asigned to the 
+                    train subset (the final proportion will diverge, being random)
     
-    Output:		
-        x_test:			[test_samples x n_channels]: Test subset input 
-        y_test:			[n_test_events x 2]: Test subset output 
-        x_train:		[train_samples x n_channels]: training subset input 
-        y_train:		[n_train_events x 2,]: training subset output
+    Output:
+    -------
+        x_test:		[test_samples x n_channels]: Test subset input 
+        y_test:		[n_test_events x 2]: Test subset output 
+        x_train:	[train_samples x n_channels]: training subset input 
+        y_train:	[n_train_events x 2,]: training subset output
     A Rubio LCN 2023
     '''
     n_samples_window=window_dur*d_sf
@@ -712,9 +737,12 @@ def split_data(x,GT,window_dur=60,d_sf=1250,split=0.7):
 
 def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=None,d_sf=1250):
     '''
-    [model,y_train,y_test] = retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=None)\n
-    Performs the retraining of the best model of the desired architecture  \n
+    [model,y_train,y_test] = retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=None)
+    
+    Performs the retraining of the best model of the desired architecture  
+    
     Inputs:
+    -------
         arch:			string, with the desired architecture model to be retrained
         x_train_or:		[n train samples x 8], normalized LFP that will be used to retrain the model
         events_train: 	[n train events x 2], begin and end timess of the train events
@@ -730,10 +758,12 @@ def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=Non
             - In 'LSTM', 'CNN1D' and 'CNN2D': 
                 params['Epochs']. The number of times the training data set will be used to train the model
                 params['Training batch']. The number of windows that will be processed before updating the weights   
-    Output:		
+    Output:
+    -------
         model: The retrained model
         y_train_p: [n_train_samples], output of the model using the training data
         y_test_p:  [n_test_samples], output of the model using the test data
+
     A Rubio LCN 2023
     '''
     # Input data preparing for training
@@ -995,20 +1025,37 @@ def check_colors(oIn,clicked_ind,ax):
     return
 
 def manual_curation(events,data,file_path,win_size=100,gt_events=None,sf=1250):
-    '''  Displays a GUI to manually select/discard the passed events \n
-        Inputs: events:   (2,n_det) array withe events begining and end times (seconds)
-                data:        (n,n_channels) normalized array with the input data
-                file_path:   str, absolute path of the folder where the .txt with the curated predictions will be saved
-                win_size:    int, length of the displayed ripples in miliseconds
-                gt_events:      (2,n_gt_events) ground truth events beginning and end times (seconds)
-                sf:          int, sampling frequency (Hz) of the data/model output. Change if different than 1250
-        Output: None, writes the curated events begin and end times in file_path
-        Use cases:
-            1. If no gt events are provided, a the detected events will be provided, you can select which ones you want to keep (highligted in green)
-               and which ones to discard (in red)
-            2. If gt events are provided, true positive detections (TP) will be displayed in green. If for any reason you want to discard correct detections,
-               they will be displayed in yellow  
+    '''  
+    manual_curation(events,data,file_path,win_size=100,gt_events=None,sf=1250)
+
+    Displays a GUI to manually select/discard the passed events
+
+    Inputs:
+    -------
+        events: (2,n_det) array with events begining and end times (seconds)
+        data: (n,n_channels) normalized array with the input data
+        file_path: (str) absolute path of the folder where the .txt with the 
+            curated predictions will be saved
+        win_size: (int) length of the displayed ripples in miliseconds
+        gt_events: (2,n_gt_events) ground truth events beginning and end times (seconds)
+        sf: (int) sampling frequency (Hz) of the data/model output. 
+            Change if different than 1250
+
+    Output:
+    -------
+        It always writes the curated events begin and end times in file_path
+        curated_ids: (events,) boolean array with 'True' for events that have been
+            selected, and 'False' for events that had been discarded
+
+    Use cases:
+        1. If no GT events are provided, a the detected events will be provided, 
+            you can select which ones you want to keep (highligted in green)
+           and which ones to discard (in red)
+        2. If GT events are provided, true positive detections (TP) will be 
+            displayed in green. If for any reason you want to discard correct 
+            detections, they will be displayed in yellow  
     '''
+
     events_in_screen=50                    # Change this parameter if you want a different number of events per page            
     events=events*sf
     if type(gt_events)==np.ndarray:        # If GT events are provided
@@ -1151,22 +1198,82 @@ def manual_curation(events,data,file_path,win_size=100,gt_events=None,sf=1250):
     plt.subplots_adjust(left=0.01,right=0.94,bottom=0.01,top=0.95,hspace=0.03,wspace=0.025)
     
     plt.show(block=True)
-    return
+
+    return np.in1d(events[:,0], curated_intervals[:,0])
+
+
+def plot_all_events(t_events, lfp, sf, win=0.100, title='', savefig=''):
+    '''
+    plot_all_events(t_events, lfp, sf, win=0.100, title='', savefig='')
+    
+    Mandatory inputs:
+    -----------------
+        events (numpy array):
+            Array of size (#events, 1) with all times of events
+        lfp (numpy array):
+            formated lfp with all channels
+        sf (int): 
+            sampling frequency of the 'lfp' variable
+
+    Optional inputs:
+    ----------------
+        win (float): 
+            window size at each side of the center of the ripple
+        title (string):
+            if provided, displays this title
+        savefig (string):
+            if provided, saves the image in the savefig directory.
+            It has to be the full name: e.g. images/session1_events.png
+        
+    '''
+    # Convert to indexes
+    id_events = (t_events*sf).astype(int)
+    # Make window array
+    ids_win = np.arange(-win*sf , win*sf+1).astype(int)
+
+    # Plot curated events
+    n_cols = int(np.sqrt(len(t_events)))*1.5
+    plt.figure(figsize=(18,12))
+    dx, dy = 0, 0
+    list_events = []
+    for ii,id_event in enumerate(id_events):
+        event = lfp[id_event+ids_win,:]
+        plt.plot(dx+np.linspace(.05,.95,len(event)), 
+                 dy+(event/3-np.arange(lfp.shape[1]))/lfp.shape[1]*0.8, 
+                 linewidth=0.7, color=np.random.rand(3))
+        dx = dx+1
+        if dx >= n_cols:
+            dx = 0
+            dy = dy-1
+    plt.xticks([])
+    plt.yticks([])
+    plt.axis('off')
+    # Title and save
+    if len(title) > 0:
+        plt.title(title)
+    plt.tight_layout()
+    if len(savefig) > 0:
+        plt.savefig(savefig)
+    plt.show()
 
 
 # Explore functions
 def build_LSTM(input_shape,n_layers=3,layer_size=20,bidirectional=False):
     '''
     model = build_LSTM(input_shape,lr,dropout_rate,n_layers,layer_size,seed,bidirectional) 
-    Builds the specified LSTM model \n
-    Inputs:		
+    
+    Builds the specified LSTM model
+    
+    Inputs:
+    -------
         input_shape:		
         x:				[timesteps x n_channels] input dimensionality of the data,
         n_layers: 		int, # of LSTM layers
         layer_size: 	int, # number of LSTM units per layer
         bidirectional:	bool, True if the models processes backwards from the end of the window, and the usual forward pass from the begininning simultaneously
 
-    Output: 
+    Output:
+    -------
         model: LSTM keras model
     '''
     keras.backend.clear_session()
@@ -1226,8 +1333,11 @@ def build_LSTM(input_shape,n_layers=3,layer_size=20,bidirectional=False):
 def build_CNN2D(conf, input_shape = (50,8,1)):
     '''
     model = build_CNN2D(conf,input_shape,learning_rate) 
-    Builds the specified CNN2D model \n
-    Inputs:		
+
+    Builds the specified CNN2D model
+
+    Inputs:
+    -------
         conf:	[n_l x 2] list. n_l is the number of 2Dconvolotional, Batch Normalization and LeakyRelu sets.
                 Each row shape: [n_k k_h k_w] n_k is the number of kernels of the layer, which defines the output shape
                                                  k_h is the width of each 2D kernel
@@ -1235,8 +1345,10 @@ def build_CNN2D(conf, input_shape = (50,8,1)):
         input_shape:			[n x 8] lfp data,subsampled and z-scored
         learning_rate:	float, the size step multiplier for the weight updates during training
 
-    Output: 
+    Output:
+    -------
         model: keras model with the specified parameters
+
     A Rubio LCN 2023
     '''
     n_max_pool_l=len(conf)//2
@@ -1268,18 +1380,22 @@ def build_CNN2D(conf, input_shape = (50,8,1)):
 
 def build_CNN1D(n_channels,timesteps,conf):
     '''
-        model = build_CNN1D(n_channels, timesteps, conf)\n
-        Returns a 1D convolutional neural network. If the desired configuration will create problems, and exception with sugestions is thrown\n
-        Inputs:
-            n_channels:		int, number of used channels (1,3 or 8)
-            timesteps:		int, number of timestamps that will be used to feed the model
-            conf:			[n_l x 2] list. n_l is the number of 1Dconvolotional, Batch Normalization and LeakyRelu sets.
-                Each row shape: [n_k k_w]. n_k is the number of kernels of the layer, which defines the output shape
-                                           k_w is the width and the stride of the kernels
-                For more clarifications, visit: 
-        Output:		
-            model: CNN1D model, consisting of a number of conv1D-BatchNorm-LeakyReLU sets followed by a dense layer.
-                    Input: (N,timesteps,n_channels) --> Output: (N,1,1,)
+    model = build_CNN1D(n_channels, timesteps, conf)\n
+    Returns a 1D convolutional neural network. If the desired configuration will create problems, and exception with sugestions is thrown\n
+    
+    Inputs:
+    -------
+        n_channels:		int, number of used channels (1,3 or 8)
+        timesteps:		int, number of timestamps that will be used to feed the model
+        conf:			[n_l x 2] list. n_l is the number of 1Dconvolotional, Batch Normalization and LeakyRelu sets.
+            Each row shape: [n_k k_w]. n_k is the number of kernels of the layer, which defines the output shape
+                                       k_w is the width and the stride of the kernels
+            For more clarifications, visit: 
+    Output:
+    -------
+        model: CNN1D model, consisting of a number of conv1D-BatchNorm-LeakyReLU sets followed by a dense layer.
+                Input: (N,timesteps,n_channels) --> Output: (N,1,1,)
+
     A Rubio LCN 2023
     '''
     o_shape_arr=[]
