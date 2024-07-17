@@ -1199,7 +1199,7 @@ def manual_curation(events,data,file_path,win_size=100,gt_events=None,sf=1250):
     
     plt.show(block=True)
 
-    return np.in1d(events[:,0], curated_intervals[:,0])
+    return np.array(oIn.keeps)
 
 
 def plot_all_events(t_events, lfp, sf, win=0.100, title='', savefig=''):
