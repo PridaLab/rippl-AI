@@ -459,7 +459,7 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
 
 # Selecting the index functions
 
-def get_predictions_index(predictions,threshold=0.5):
+def get_predictions_index(predictions,threshold=0.5,merge_samples=0):
     '''
     [pred_indexes] = get_predictions_index(predictions, thershold)
 
@@ -469,6 +469,7 @@ def get_predictions_index(predictions,threshold=0.5):
     -------
         predictions:	X, array with the continuous output of a model (even the Gt)
         threshold:		float, signal intervals above this value will be considered events
+        merge_samples:  int, events with less than this number of samples between them will be merged together
     
     Output:
     -------
@@ -489,7 +490,18 @@ def get_predictions_index(predictions,threshold=0.5):
     pred_indexes=np.empty(shape=(len(begin_indexes),2))
     pred_indexes[:,0]=begin_indexes
     pred_indexes[:,1]=end_indexes
-
+    # If merge is demanded
+    if merge_samples:
+        m_indexes=[]
+        i=0
+        while i< len(pred_indexes):
+            j=1
+            if i+j<len(pred_indexes):
+                while pred_indexes[i+j,0]-pred_indexes[i+j-1,1] < merge_samples and i+j<len(pred_indexes):
+                    j+=1
+            m_indexes.append([pred_indexes[i,0],pred_indexes[i+j-1,1]])
+            i+=j
+        pred_indexes=np.array(m_indexes)
     return pred_indexes
 
 def middle_stamps(pred_ind):

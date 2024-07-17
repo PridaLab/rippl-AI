@@ -40,7 +40,6 @@ def predict(LFP,sf,d_sf=1250,arch='CNN1D',model_number=1,channels=np.arange(8),n
                   so for them to work at their maximum potential, the selected channels would  
                   ideally be centered in the SP, with a postive deflection on the first channels  
                   (upper channels) and a negative deflection on the last channels (lower channels).  
-                  The image TODO (link a la imagen)
                 - For all combinations of architectures and model_numbers, channels has to be  
                   of size 8. There is only one exception, for architecture = 2D-CNN with  
                   models = {3, 4, 5}, that needs to have 3 channels.
@@ -51,7 +50,6 @@ def predict(LFP,sf,d_sf=1250,arch='CNN1D',model_number=1,channels=np.arange(8),n
                   the SP with 8 channels. For that, interpolation or recorded channels can be 
                   done without compromising performance. New artificial interpolated channels 
                   will be add to the LFP wherever there is a -1 in channels.
-                  TODO: igual el siguiente párrafo se pude quitar,
                   For example, if pyr_channel=11 in your linear probe, so that 10 is in stratum 
                   oriens and 12 in stratum radiatum, then we could define channels=[10,-1,-1,11,-1,-1,-1,12],
                   where 2nd and 3rd channelswill be an interpolation of SO and SP channels, and 
@@ -115,7 +113,7 @@ def predict_ens(ens_input,model_name='ENS'):
 
 
 
-def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=None):
+def get_intervals(y,threshold=None,LFP_norm=None,sf=1250,win_size=100,file_path=None,merge_win=0):
     ''' 
     get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=None)
     
@@ -127,11 +125,14 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         y: (n,) one dimensional output signal of the model
         threshold: (float), threshold of predictions
         LFP_norm: (n,n_channels), normalized input signal of the model
-        file_path: (str), absolute path of the folder where the .txt with the predictions 
-            will be generated. Leave empty if you don't want to generate the file
-        win_size: (int), length of the displayed ripples in miliseconds
         sf: (int), sampling frequency (Hz) of the LFP_norm/model output. 
             Change if used is different than 1250
+        win_size: (int), length of the displayed ripples in miliseconds
+        file_path: (str), absolute path of the folder where the .txt with the predictions 
+            will be generated. Leave empty if you don't want to generate the file
+        merge_win: (float), minimal length of the interval in miliseconds between predictions. If 
+            two detections are closer in time than this parameter, they will be merged together
+    
 
     Output:
     -------
@@ -145,6 +146,8 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
     
     '''
     global predictions_index, line
+    # Merge samples
+    merge_s=round(sf*merge_win/1000)
     # If LFP_norm is passed, plot detected ripples
     if type(LFP_norm)==np.ndarray:
 
@@ -178,14 +181,14 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         # Save button definition
         Saveax = plt.axes([0.375, 0.47, 0.095, 0.04])
 
-        button_save = Button(Saveax, f'Save: {len(get_predictions_index(y,valinit))} events', color=axcolor, hovercolor=hovercolor)
+        button_save = Button(Saveax, f'Save: {len(get_predictions_index(y,valinit,merge_samples=merge_s))} events', color=axcolor, hovercolor=hovercolor)
 
         def plot_ripples():
             global predictions_index
 
             th=line.get_xdata()[0]
             
-            predictions_index=get_predictions_index(y,th)
+            predictions_index=get_predictions_index(y,th,merge_samples=merge_s)
             n_pred=len(predictions_index)
             # Clearing the axes
             for key in axes.keys():
@@ -257,7 +260,7 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
             global predictions_index
             # Generar las predicciones con el th guardado
             th=line.get_xdata()[0]
-            predictions_index=get_predictions_index(y,th)
+            predictions_index=get_predictions_index(y,th,merge_samples=merge_s)
 
             if file_path:  
                 format_predictions(file_path,predictions_index,sf)
@@ -276,7 +279,7 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
                     line.remove()
                     line=axes['A'].axvline(th,c='k')
                     clicked_ax.set_title(f'Th: {th:1.3f}')
-                    n_events=len(get_predictions_index(y,th))
+                    n_events=len(get_predictions_index(y,th,merge_samples=merge_s))
                     button_save.label.set_text(f"Save: {n_events} events")
 
         plt.connect('button_press_event',on_click_press)
@@ -309,16 +312,15 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
         line=ax.axvline(valinit,c='k')
         # Button definition
         resetax = plt.axes([0.7, 0.5, 0.12, 0.075])
-        button = Button(resetax, f'Save\n{len(get_predictions_index(y,valinit))} events', color=axcolor, hovercolor=hovercolor)
+        button = Button(resetax, f'Save\n{len(get_predictions_index(y,valinit,merge_samples=merge_s))} events', color=axcolor, hovercolor=hovercolor)
 
 
         # Button definition
         
         def generate_pred(event):
-            # Generar las predicciones con el th guardado
             global predictions_index
             th=line.get_xdata()[0]
-            predictions_index=get_predictions_index(y,th)
+            predictions_index=get_predictions_index(y,th,merge_samples=merge_s)
             if file_path:  # Si la linea del archivo no esta vacia
                 format_predictions(file_path,predictions_index,sf)
             plt.close()
@@ -336,16 +338,16 @@ def get_intervals(y,LFP_norm=None,sf=1250,win_size=100,threshold=None,file_path=
                     line=ax.axvline(th,c='k')
                     ax.set_title(f'Th: {th:1.3f}')
 
-                    n_events=len(get_predictions_index(y,th))
+                    n_events=len(get_predictions_index(y,th,merge_samples=merge_s))
                     button.label.set_text(f"Save\n{n_events} events")
                     plt.draw()
         plt.connect('button_press_event',on_click)
 
         plt.connect('motion_notify_event', on_click)
-        plt.show()
-    # If threhold is defined, and no LFP_norm is passsed, the function simply generates the predictions     
+        plt.show(block=True)
+    # If threshold is defined, and no LFP_norm is passsed, the function simply generates the predictions     
     else:
-        predictions_index=get_predictions_index(y,threshold)
+        predictions_index=get_predictions_index(y,threshold,merge_samples=merge_s)
         if file_path:
             format_predictions(file_path,predictions_index,sf)
     return (predictions_index/sf)
@@ -410,7 +412,7 @@ def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,d_sf=12
 
 # Retrain the best model of each architecture, and save it in the path specified in save_path.
 #  also plots the trai, test and validation performance
-def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250):
+def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250,merge_win=0):
     '''
     retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250)
 
@@ -434,6 +436,9 @@ def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,sav
                 parameters['Epochs']. The number of times the training data set will be used to train the model
                 parameters['Training batch']. The number of windows that will be processed before updating the weights
             save_path: string, path where the retrained model will be saved
+            merge_win: (float), minimal length of the interval in miliseconds between predictions. If 
+                two detections are closer in time than this parameter, they will be merged together
+
     
     Output:
     -------
@@ -445,6 +450,7 @@ def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,sav
     A Rubio LCN 2023
 
     '''
+    merge_s=round(d_sf*merge_win/1000)
     # Do the train/test split. Feel free to try other proportions
     LFP_test,events_test,LFP_train,events_train=split_data(LFP_retrain,GT_retrain,split=0.7,sf=d_sf)
 
@@ -486,8 +492,8 @@ def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,sav
     F1_train=np.empty(shape=len(th_arr))
     F1_test=np.empty(shape=len(th_arr))
     for i,th in enumerate(th_arr):
-        pred_train_events=get_predictions_index(y_pred_train,th)/d_sf
-        pred_test_events=get_predictions_index(y_pred_test,th)/d_sf
+        pred_train_events=get_predictions_index(y_pred_train,th,merge_samples=merge_s)/d_sf
+        pred_test_events=get_predictions_index(y_pred_test,th,merge_samples=merge_s)/d_sf
         _,_,F1_train[i],_,_,_=get_performance(pred_train_events,events_train,verbose=False)
         _,_,F1_test[i],_,_,_=get_performance(pred_test_events,events_test,verbose=False)
     
@@ -506,7 +512,7 @@ def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,sav
     F1_val=np.zeros(shape=(len(LFP_val),len(th_arr)))
     for j,pred in enumerate(val_pred):
         for i,th in enumerate(th_arr):
-            pred_val_events=get_predictions_index(pred,th)/d_sf
+            pred_val_events=get_predictions_index(pred,th,merge_samples=merge_s)/d_sf
             _,_,F1_val[j,i],_,_,_=get_performance(pred_val_events,GT_val[j],verbose=False)
 
     for i in range(len(LFP_val)):

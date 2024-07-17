@@ -295,5 +295,5 @@ To download the lab data from figshare (not normalized, sampled with the origina
 ```
 git clone https://github.com/cognoma/figshare.git
 cd figshare
-python setup.py
+python setup.py install
 ```
