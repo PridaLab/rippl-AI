@@ -1104,11 +1104,15 @@ def manual_curation(events,data,file_path,win_size=100,gt_events=None,sf=1250):
             if oIn.check_index(i):
                 return
             disp_ind=i+oIn.index
-            extracted_window=data[mids[disp_ind]-timesteps:mids[disp_ind]+timesteps,:]
-            x=extracted_window*1/3+pos_mat              # The division (/3) might be changed to better compare between ripple
+            ini_window=np.maximum(mids[disp_ind]-timesteps,0)
+            end_window=np.minimum(mids[disp_ind]+timesteps,len(data))
+            extracted_window=data[ini_window:end_window,:]
+            x=extracted_window*1/3+pos_mat[:end_window-ini_window]   # The division (/3) might be changed to better compare between ripple
+
             lines=ax.plot(x,c='0.3',linewidth=0.5)
+
             # Ripple fragment different color
-            ini_rip=int(oIn.intervals[disp_ind,0]) # Timestamps absolutos
+            ini_rip=int(oIn.intervals[disp_ind,0]) # Absolute index
             end_rip=int(oIn.intervals[disp_ind,1])
             small_pos_mat = list(range(data.shape[1]-1, -1, -1)) * np.ones((end_rip- ini_rip, data.shape[1]))
             ripple_window=data[ini_rip:end_rip,:]
