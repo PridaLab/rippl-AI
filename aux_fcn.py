@@ -1118,7 +1118,7 @@ def manual_curation(events,data,file_path,win_size=100,gt_events=None,sf=1250):
             ripple_window=data[ini_rip:end_rip,:]
             
             x_ripple=ripple_window*1/3+small_pos_mat
-            samples_ripple=np.linspace(ini_rip,end_rip,end_rip-ini_rip,dtype=int)-(mids[disp_ind]-timesteps)
+            samples_ripple=np.linspace(ini_rip,end_rip,end_rip-ini_rip,dtype=int)-ini_window
             rip_lines=ax.plot(samples_ripple,x_ripple,c='k',linewidth=0.5)
             check_colors(oIn,i,ax)
 
