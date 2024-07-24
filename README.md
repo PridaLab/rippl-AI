@@ -64,7 +64,7 @@ Moreover, several usage examples of all functions can be found in the [examples_
 
 ### rippl_AI.predict()
 
-The python function `predict(LFP, sf, arch='CNN1D', model_number=1, channels=np.arange(8))` of the `rippl_AI` module computes the SWR probability for a give LFP. 
+The python function `predict(LFP, sf, arch='CNN1D', model_number=1, channels=np.arange(8), d_sf=1250)` of the `rippl_AI` module computes the SWR probability for a give LFP. 
 
 In the figure below, you can see an example of a high-density LFP recording (top) with manually labeled data (gray). The objective of these `model`s is to generate an output signal that most similarly matches the manually labeled signal. The output of the uploaded optimized models can be seen in the bottom, where outputs go from 0 (low probability of SWR) to 1 (high probability of SWR) for each LFP sample.
 
@@ -78,7 +78,7 @@ The `rippl_AI.predict()` input and output variables are:
 
 * Optional inputs:
 	- `arch`: Name of the AI architecture to use (`string`). It can be: `CNN1D`, `CNN2D`, `LSTM`, `SVM` or `XGBOOST`.
-	- `model_number`: Number of the model to use (`integer`). There are six different models for each architecture, sorted by performance, being `1` the best, and `5` the last. The `6` model can be used if single-channel data needs to be used. 
+	- `model_number`: Number of the model to use (`integer`). There are six different models for each architecture, sorted by performance, being `1` the best, and `5` the last. `model_number=6` model can be used if single-channel data needs to be used. 
 	- `channels`: Channels to be used for detection (`np.array` or `list`: `1` x `8`). This is the most senstive parameter, because models will be looking for specific spatial features over all channels. Counting starts in `0`. The two main remarks are:
 		* All models have been trained to look at features in the pyramidal layer (SP), so for them to work at their maximum potential, the selected channels would ideally be centered in the SP, with a postive deflection on the first channels (upper channels) and a negative deflection on the last channels (lower channels). The image above can be used as a visual reference of how to choose channels.
 		* For all combinations of `architectures` and `model_numbers`, `channels` **has to be of size 8**. There is only one exception, for `architecture = 2D-CNN` with `models = {3, 4, 5}`, that needs to have **3 channels**. 
@@ -86,16 +86,16 @@ The `rippl_AI.predict()` input and output variables are:
 		* In the case of linear probes or tetrodes, there are not enough density to cover the SP with 8 channels. For that, interpolation or recorded channels can be done without compromising performance. New artificial interpolated channels will be add to the LFP wherever there is a `-1` in `channels`. For example, if `pyr_channel=11` in your linear probe, so that 10 is in _stratum oriens_ and 12 in _stratum radiatum_, then we could define `channels=[10,-1,-1,11,-1,-1,-1,12]`, where 2nd and 3rd channels will be an interpolation of SO and SP channels, and 5th to 7th an interpolation of SP and SR channels. For tetrodes, organising channels according to their spatial profile is very convenient to assure best performance. These interpolations are done using the function `aux_fcn.interpolate_channels()`.
 		* Several examples of all these usages can be found in the [examples_detection.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_detection.ipynb) python notebook.
 	- `new_model`: Other re-trained model you want to use for detection. If you have used our re-train function to adapt the optimized models to your own data (see `rippl_AI.retrain()` for more details), you can input the `new_model` here to use that model to predict your events.
+  	- `d_sf`: Desired subsampling frequency in Hz (`int`). By default all works in 1250 Hz, but can be changed if you retrain your models using `rippl_AI.retrain_model`.
 
 * Output:
 	- `SWR_prob`: model output for every sample of the LFP (`np.array`: `n_samples` x 1). It can be interpreted as the confidence or probability of a SWR event, so values close to 0 mean that the `model` is certain that there are not SWRs, and values close to 1 that the model is very sure that there is a SWR hapenning.
 	- `LFP_norm`: LFP data used as an input to the model (`np.array`: `n_samples` x `len(channels)`). It is undersampled to 1250Hz, z-scored, and transformed to used the channels specified in `channels`.
 
 
-
 ### rippl_AI.get_intervals()
 
-The python function `get_intervals(SWR_prob, LFP_norm=None, sf=1250, win_size=100, threshold=None, file_path=None)` of the `rippl_AI` module takes the output of `rippl_AI.predict()` (i.e. the SWR probability), and identifies SWR beginnings and ends by stablishing a threshold. In the figure below, you can see how the threshold can decisevely determine what events are being detected. For example, lowering the threshold to 0.5 would have result in XGBoost correctly detecting the first SWR, and the 1D-CNN detecting the sharp-wave that has no ripple.
+The python function `get_intervals(SWR_prob, LFP_norm=None, sf=1250, win_size=100, threshold=None, file_path=None, merge_win=0)` of the `rippl_AI` module takes the output of `rippl_AI.predict()` (i.e. the SWR probability), and identifies SWR beginnings and ends by stablishing a threshold. In the figure below, you can see how the threshold can decisevely determine what events are being detected. For example, lowering the threshold to 0.5 would have result in XGBoost correctly detecting the first SWR, and the 1D-CNN detecting the sharp-wave that has no ripple.
 
 ![Detection method](https://github.com/PridaLab/rippl-AI/blob/main/figures/detection-method.png)
 
@@ -109,6 +109,7 @@ The python function `get_intervals(SWR_prob, LFP_norm=None, sf=1250, win_size=10
     - `file_path`: Absolute path of the folder where the .txt with the predictions will be generated (`string`). Leave empty if you don't want to generate the file. 
     - `win_size`: Length of the displayed ripples in miliseconds (`integer`). By default 100 ms.
     - `sf`: Sampling frequency (Hz) of `LFP_norm` (`integer`). By default 1250 Hz (i.e., sampling frequency of `LFP_norm`).
+    - `merge_win`: Minimal length of the interval in miliseconds between predictions (`float`). If two detections are closer in time than this parameter, they will be merged together
 
     There are 4 possible use cases, depending on which parameter combination is used when calling the function.
     1. `rippl_AI.get_intervals(SWR_prob)`: a histogram of the output is displayed, you drag a vertical bar to selecct your `threshold`
@@ -124,14 +125,14 @@ The python function `get_intervals(SWR_prob, LFP_norm=None, sf=1250, win_size=10
 	- `predictions`: Returns the time (in seconds) of the begining and end of each vents. (`n_events` x 2)
 
 
-
 ### aux_fcn.process_LFP()
 
-The python function `process_LFP(FP, sf, channels)` of the `aux_fcn` module processes the LFP before it is input to the algorithm. It downsamples LFP to 1250 Hz, and normalizes each channel separately by z-scoring them.
+The python function `process_LFP(FP, sf, d_sf, channels)` of the `aux_fcn` module processes the LFP before it is input to the algorithm. It downsamples LFP to `d_sf`, and normalizes each channel separately by z-scoring them.
 
 * Mandatory inputs:
 	- `LFP`: LFP recorded data (`np.array`: `n_samples` x `n_channels`).
 	- `sf`: sampling frequency (in Hz).
+  	- `d_sf`: Desired subsampling frequency in Hz (`int`). By default all works in 1250 Hz, but can be changed if you retrain your models using `rippl_AI.retrain_model`.
 	- `channels`: channel to which compute the undersampling and z-score normalization. Counting starts in `0`. If `channels` contains any `-1`, interpolation will be also applied. See `channels` of rippl_AI.predict(), or `aux_fcn.interpolate_channels()` for more information.
 
 * Output:
@@ -167,6 +168,41 @@ Because these models best performed using a richer spatial profile, all combinat
 
 * Output:
 	- LFP_interpolated: Interpolated LFP (`np.array`: `n_samples` x `len(channels)`).
+
+
+### aux_fcn.manual_curation()
+
+The python function `aux_fcn.manual_curation(events, data, file_path, win_size=100, gt_events=None, sf=1250)` of the `aux_fcn` module allows doing a manual curation of the detected events. It displays an interactive GUI to manually select/discard the events. 
+
+* Mandatory inputs:
+	- `events`: array with events begining and end times in seconds (`2`,`n_det`).
+	- `data`: normalized array with the input data (`n,n_channels`)
+	- `file_path`: absolute path of the folder where the .txt with the curated predictions will be saved (`str`).
+	- `win_size`: length of the displayed ripples in miliseconds (`int`)
+	- `gt_events`: ground truth events beginning and end times in seconds (`2`,`n_gt_events`)
+	- `sf`: sampling frequency (Hz) of the data/model output (`int`). Change if different than 1250 Hz.
+
+ * Output: It always writes the curated events begin and end times in file_path.
+	- curated_ids: boolean array with `True` for events that have been selected, and `False` for events that had been discarded (`#events`,)
+
+Use cases:
+1. If no GT events are provided, a the detected events will be provided, you can select which ones you want to keep (highligted in green) and which ones to discard (in red)
+2. If GT events are provided, true positive detections (TP) will be displayed in green. If for any reason you want to discard correct detections, they will be displayed in yellow  
+
+
+### aux_fcn.plot_all_events()
+
+The python function `aux_fcn.plot_all_events(t_events, lfp, sf, win=0.1, title='', savefig='')` of the `aux_fcn` module plots all events in a single plot. It can be used as a fast summary/check after detection and/or curation.
+
+* Mandatory inputs:
+	- `events`: numpy array of size (`#events`, `1`) with all times of events
+	- `lfp`: formated lfp with all channels
+	- `sf`: sampling frequency of `lfp`
+
+* Optional inputs:
+    - `win`: window size at each side of the center of the ripple (`float`)
+    - `title`: if provided, displays this title (`string`)
+    - `savefig`: if provided, saves the image in the savefig directory (`string`).Full name required: e.g. images/session1_events.png
 
 
 ### aux_fcn.get_performance()
@@ -207,7 +243,7 @@ Here, we provide a unique toolbox to easily re-train `model`s and adapt them to 
 
 ### rippl_AI.retrain_model()
 
-The python function `rippl_AI.retrain(train_data, train_GT, test_data, test_GT, (arch, parameters, save_path))` of the `rippl_AI` module re-trains the best model of a given `architecture` to re-learn the optimal features to detect the new ground truth events annotated in the ground truth events.
+The python function `rippl_AI.retrain_model(train_data, train_GT, test_data, test_GT, arch, parameters=None, save_path=None, d_sf=1250, merge_win=0)` of the `rippl_AI` module re-trains the best model of a given `architecture` to re-learn the optimal features to detect the new ground truth events annotated in the ground truth events.
 
 * Mandatory inputs:
 	- `train_data`: LFP recorded data that will be used to train the model (`np.array`: `n_samples` x `n_channels`). If several sessions needed, concatenate them to get the specified format.
@@ -226,7 +262,9 @@ The python function `rippl_AI.retrain(train_data, train_GT, test_data, test_GT, 
                 - In 'LSTM', 'CNN1D' and 'CNN2D': 
                     parameters['Epochs']. The number of times the training data set will be used to train the model
                     parameters['Training batch']. The number of windows that will be processed before updating the weights
-   	- `save_path`: string, path where the retrained model will be saved
+	- `save_path`: string, path where the retrained model will be saved
+	- `d_sf`: Desired subsampling frequency in Hz (`int`). By default all works in 1250 Hz, but this function allows using different subsampling frequencies.
+	- `merge_win`: Minimal length of the interval in miliseconds between predictions (`float`). If two detections are closer in time than this parameter, they will be merged together
 
 Usage examples can be found in the [examples_retraining.ipynb](https://github.com/PridaLab/rippl-AI/blob/main/examples_retraining.ipynb) python notebook.
 
@@ -297,3 +335,18 @@ git clone https://github.com/cognoma/figshare.git
 cd figshare
 python setup.py install
 ```
+The package versions compatible with the toolbox are:
+
+- h5py==3.11.0
+- imbalanced-learn==0.12.2
+- imblearn==0.0
+- ipython==8.18.1
+- keras==2.11.0
+- numpy==1.26.4
+- pandas==2.2.2
+- pip==23.3.1
+- python==3.9.19
+- scikit-learn==1.1.2
+- scipy==1.13.0
+- tensorflow==2.11.0
+- xgboost==1.6.1

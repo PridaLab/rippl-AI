@@ -414,30 +414,38 @@ def prepare_training_data(train_LFPs,train_GTs,val_LFPs,val_GTs,sf=30000,d_sf=12
 #  also plots the trai, test and validation performance
 def retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250,merge_win=0):
     '''
-    retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250)
+    retrain_model(LFP_retrain,GT_retrain,LFP_val,GT_val,arch,parameters=None,save_path=None,d_sf=1250,merge_win=0)
 
     Retrains the best model of the specified architecture with the retrain data and the specified parameters. Performs validation if validation data is provided, and plots the train, test and validation performance.
     
-    Inputs:
-    -------
-        LFP_retrain:  (n_samples x n_channels)  concatenated LFP of all the trained sessions
-        GT_retrain:   (n_events x 2) list with the concatenated GT events times of n sessions, in the format [ini end] in seconds
-        arch:          string, architecture of the model to be retrained
-        LFP_val:    (n_val_sessions) list: with the normalized LFP of the sessions that will be used in validation
-        GT_val:     (n_val_sessions) list: with the GT events of the validation sessions
-        Optional inputs
-            parameters: dictionary, with the parameters that will be use in each specific architecture retraining
-            - In 'XGBOOST': not needed
-            - In 'SVM':     
-                parameters['Undersampler proportion']. Any value between 0 and 1. This parameter eliminates 
-                                samples where no ripple is present untill the desired proportion is achieved: 
-                                Undersampler proportion= Positive samples/Negative samples
-            - In 'LSTM', 'CNN1D' and 'CNN2D': 
-                parameters['Epochs']. The number of times the training data set will be used to train the model
-                parameters['Training batch']. The number of windows that will be processed before updating the weights
-            save_path: string, path where the retrained model will be saved
-            merge_win: (float), minimal length of the interval in miliseconds between predictions. If 
-                two detections are closer in time than this parameter, they will be merged together
+    Mandatory inputs:
+    -----------------
+        LFP_retrain: (n_samples x n_channels). Concatenated LFP of all the trained sessions
+        GT_retrain:  (n_events x 2). List with the concatenated GT events times of n sessions, 
+                     in the format [ini end] in seconds
+        LFP_val:     (n_val_sessions). List with the normalized LFP of the sessions that will
+                     be used in validation
+        GT_val:      (n_val_sessions). List with the GT events of the validation sessions
+        arch:        (string). Architecture of the model to be retrained
+
+    Optional inputs:
+    ----------------
+        parameters:  (dictionary) Parameters that will be use in each specific architecture retraining
+            - For 'XGBOOST', not needed.
+            - For 'SVM', one parameter is needed:
+                    - parameters['Undersampler proportion']: Any value between 0 and 1. 
+                        This parameter eliminates samples where no ripple is present untill the 
+                        desired proportion is achieved: 
+                        Undersampler proportion= Positive samples/Negative samples
+            - For 'LSTM', 'CNN1D' and 'CNN2D', two things are needed:
+                    - parameters['Epochs']. The number of times the training data set will
+                        be used to train the model.
+                    - parameters['Training batch']. The number of windows that will be processed 
+                        before updating the weights
+        save_path: (string). Path where the retrained model will be saved
+        d_sf:      (int) Desired subsampling frequency (in Hz)
+        merge_win: (float). Minimal length of the interval in miliseconds between predictions. If 
+                    two detections are closer in time than this parameter, they will be merged together
 
     
     Output:

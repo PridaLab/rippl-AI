@@ -323,6 +323,8 @@ def generate_overlapping_windows(data, window_size, stride, sf):
 def process_LFP(LFP,sf,d_sf,channels):
     
     ''' 
+    def process_LFP(LFP,sf,d_sf,channels)
+
     This function processes the LFP before calling the detection algorithm.
     1. It extracts the desired channels from the original LFP, and interpolates where there is a value of -1.
     2. Downsamples the LFP to d_sf Hz.
