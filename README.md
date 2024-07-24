@@ -125,6 +125,43 @@ The python function `get_intervals(SWR_prob, LFP_norm=None, sf=1250, win_size=10
 	- `predictions`: Returns the time (in seconds) of the begining and end of each vents. (`n_events` x 2)
 
 
+### aux_fcn.manual_curation()
+
+The python function `aux_fcn.manual_curation(events, data, file_path, win_size=100, gt_events=None, sf=1250)` of the `aux_fcn` module allows doing a manual curation of the detected events. It displays an interactive GUI to manually select/discard the events. 
+
+* Mandatory inputs:
+	- `events`: array with events begining and end times in seconds (`2`,`n_det`).
+	- `data`: normalized array with the input data (`n,n_channels`)
+	- `file_path`: absolute path of the folder where the .txt with the curated predictions will be saved (`str`).
+	- `win_size`: length of the displayed ripples in miliseconds (`int`)
+	- `gt_events`: ground truth events beginning and end times in seconds (`2`,`n_gt_events`)
+	- `sf`: sampling frequency (Hz) of the data/model output (`int`). Change if different than 1250 Hz.
+
+ * Output: It always writes the curated events begin and end times in file_path.
+	- curated_ids: boolean array with `True` for events that have been selected, and `False` for events that had been discarded (`#events`,)
+
+![Example of manual curation function](https://github.com/PridaLab/rippl-AI/blob/main/figures/manual-curation.png)
+
+Use cases:
+1. If no GT events are provided, a the detected events will be provided, you can select which ones you want to keep (highligted in green) and which ones to discard (in red)
+2. If GT events are provided, true positive detections (TP) will be displayed in green. If for any reason you want to discard correct detections, they will be displayed in yellow  
+
+
+### aux_fcn.plot_all_events()
+
+The python function `aux_fcn.plot_all_events(t_events, lfp, sf, win=0.1, title='', savefig='')` of the `aux_fcn` module plots all events in a single plot. It can be used as a fast summary/check after detection and/or curation.
+
+* Mandatory inputs:
+	- `events`: numpy array of size (`#events`, `1`) with all times of events
+	- `lfp`: formated lfp with all channels
+	- `sf`: sampling frequency of `lfp`
+
+* Optional inputs:
+    - `win`: window size at each side of the center of the ripple (`float`)
+    - `title`: if provided, displays this title (`string`)
+    - `savefig`: if provided, saves the image in the savefig directory (`string`).Full name required: e.g. images/session1_events.png
+
+
 ### aux_fcn.process_LFP()
 
 The python function `process_LFP(FP, sf, d_sf, channels)` of the `aux_fcn` module processes the LFP before it is input to the algorithm. It downsamples LFP to `d_sf`, and normalizes each channel separately by z-scoring them.
@@ -168,41 +205,6 @@ Because these models best performed using a richer spatial profile, all combinat
 
 * Output:
 	- LFP_interpolated: Interpolated LFP (`np.array`: `n_samples` x `len(channels)`).
-
-
-### aux_fcn.manual_curation()
-
-The python function `aux_fcn.manual_curation(events, data, file_path, win_size=100, gt_events=None, sf=1250)` of the `aux_fcn` module allows doing a manual curation of the detected events. It displays an interactive GUI to manually select/discard the events. 
-
-* Mandatory inputs:
-	- `events`: array with events begining and end times in seconds (`2`,`n_det`).
-	- `data`: normalized array with the input data (`n,n_channels`)
-	- `file_path`: absolute path of the folder where the .txt with the curated predictions will be saved (`str`).
-	- `win_size`: length of the displayed ripples in miliseconds (`int`)
-	- `gt_events`: ground truth events beginning and end times in seconds (`2`,`n_gt_events`)
-	- `sf`: sampling frequency (Hz) of the data/model output (`int`). Change if different than 1250 Hz.
-
- * Output: It always writes the curated events begin and end times in file_path.
-	- curated_ids: boolean array with `True` for events that have been selected, and `False` for events that had been discarded (`#events`,)
-
-Use cases:
-1. If no GT events are provided, a the detected events will be provided, you can select which ones you want to keep (highligted in green) and which ones to discard (in red)
-2. If GT events are provided, true positive detections (TP) will be displayed in green. If for any reason you want to discard correct detections, they will be displayed in yellow  
-
-
-### aux_fcn.plot_all_events()
-
-The python function `aux_fcn.plot_all_events(t_events, lfp, sf, win=0.1, title='', savefig='')` of the `aux_fcn` module plots all events in a single plot. It can be used as a fast summary/check after detection and/or curation.
-
-* Mandatory inputs:
-	- `events`: numpy array of size (`#events`, `1`) with all times of events
-	- `lfp`: formated lfp with all channels
-	- `sf`: sampling frequency of `lfp`
-
-* Optional inputs:
-    - `win`: window size at each side of the center of the ripple (`float`)
-    - `title`: if provided, displays this title (`string`)
-    - `savefig`: if provided, saves the image in the savefig directory (`string`).Full name required: e.g. images/session1_events.png
 
 
 ### aux_fcn.get_performance()
