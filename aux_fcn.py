@@ -18,6 +18,10 @@ from keras.initializers import GlorotUniform, Orthogonal
 from xgboost import XGBClassifier
 from imblearn.under_sampling import RandomUnderSampler
 
+# Absolute path to the directory containing aux_fcn.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Path to optimized_models
+OPTIMIZED_MODELS_DIR = os.path.join(BASE_DIR, 'optimized_models')
 
 def fcn_save_pickle(name,x):
     '''
@@ -380,7 +384,7 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
     # If no new_model is passed:
     # Looks for the name of the selected model
     if new_model==None:
-        for filename in os.listdir('optimized_models'):
+        for filename in os.listdir(OPTIMIZED_MODELS_DIR):
             if f'{arch}_{model_number}' in filename:
                 break
         print(filename)
@@ -401,7 +405,7 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
         y_predict= np.zeros(shape=(input_len,1,1))
         if new_model==None:
             xgb=XGBClassifier()
-            xgb.load_model(os.path.join('optimized_models',filename))
+            xgb.load_model(os.path.join(OPTIMIZED_MODELS_DIR,filename))
         else:
             xgb=new_model
         windowed_signal=xgb.predict_proba(LFP)[:,1]
@@ -413,7 +417,7 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
         # model load
         if new_model==None:
             
-            clf=fcn_load_pickle(os.path.join('optimized_models',filename))#.calibrated_classifiers_[0]
+            clf=fcn_load_pickle(os.path.join(OPTIMIZED_MODELS_DIR,filename))#.calibrated_classifiers_[0]
         else:
             clf=new_model
         windowed_signal= clf.predict_proba(LFP)[:,1]
@@ -424,7 +428,7 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
         LFP=LFP[:len(LFP)-len(LFP)%timesteps,:].reshape(-1,timesteps,n_channels)
         # Model load
         if new_model==None:
-           model = keras.models.load_model(os.path.join('optimized_models',filename))
+           model = keras.models.load_model(os.path.join(OPTIMIZED_MODELS_DIR,filename))
         else:
            model = new_model
         y_predict = model.predict(LFP,verbose=1)
@@ -434,7 +438,7 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
         LFP=LFP[:len(LFP)-len(LFP)%timesteps,:].reshape(-1,timesteps,n_channels)
         optimizer = keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
         if new_model==None:
-            model = keras.models.load_model(os.path.join('optimized_models',filename), compile=False)
+            model = keras.models.load_model(os.path.join(OPTIMIZED_MODELS_DIR,filename), compile=False)
         else:
             model=new_model
         model.compile(loss="binary_crossentropy", optimizer=optimizer)
@@ -446,7 +450,7 @@ def prediction_parser(LFP,arch='CNN1D',model_number=1,new_model=None,n_channels=
             y_predict[i*timesteps:(i+1)*timesteps]=window
     elif arch=='CNN2D':
         if new_model==None:
-            model = keras.models.load_model(os.path.join('optimized_models',filename))
+            model = keras.models.load_model(os.path.join(OPTIMIZED_MODELS_DIR,filename))
         else:
             model=new_model
         LFP=LFP[:len(LFP)-len(LFP)%timesteps,:].reshape(-1,timesteps,n_channels,1)
@@ -807,7 +811,7 @@ def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=Non
         y_test=rec_signal(y_test_aux)
         # model load
         model=XGBClassifier()
-        model.load_model(os.path.join('optimized_models','XGBOOST_1_Ch8_W60_Ts016_D7_Lr0.10_G0.25_L10_SCALE1'))
+        model.load_model(os.path.join(OPTIMIZED_MODELS_DIR,'XGBOOST_1_Ch8_W60_Ts016_D7_Lr0.10_G0.25_L10_SCALE1'))
 
         model.fit(x_train, y_train,verbose=True,eval_set = [(x_test, y_test)])
         
@@ -842,7 +846,7 @@ def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=Non
         
         print(f"Under sampling result: {x_train_us.shape}")
         # model load
-        model=fcn_load_pickle(os.path.join('optimized_models','SVM_1_Ch8_W60_Ts001_Us0.05'))
+        model=fcn_load_pickle(os.path.join(OPTIMIZED_MODELS_DIR,'SVM_1_Ch8_W60_Ts001_Us0.05'))
         # model fit
         model=model.fit(x_train_us, y_train_us)
 
@@ -862,7 +866,7 @@ def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=Non
         x_test=x_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps,n_channels)
         y_test=y_test[:x_test_len-x_test_len%timesteps].reshape(-1,timesteps,1)
         print("Input and output shape: ",x_train.shape,y_train.shape)
-        model = keras.models.load_model(os.path.join('optimized_models','LSTM_1_Ch8_W60_Ts32_Bi0_L4_U11_E10_TB256'))
+        model = keras.models.load_model(os.path.join(OPTIMIZED_MODELS_DIR,'LSTM_1_Ch8_W60_Ts32_Bi0_L4_U11_E10_TB256'))
         # If no parameters are provided, 5 epochs and 32 as training batch will be used
         if params==None:
             epochs=5
@@ -894,7 +898,7 @@ def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=Non
             y_test[i]=1  if any (y_test_aux[i]==1) else 0
 
         optimizer = keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False)
-        model = keras.models.load_model(os.path.join('optimized_models','CNN1D_1_Ch8_W60_Ts16_OGmodel12'), compile=False)
+        model = keras.models.load_model(os.path.join(OPTIMIZED_MODELS_DIR,'CNN1D_1_Ch8_W60_Ts16_OGmodel12'), compile=False)
         model.compile(loss="binary_crossentropy", optimizer=optimizer)
         if params==None:
             epochs=20
@@ -926,7 +930,7 @@ def retraining_parser(arch,x_train_or,events_train,x_test,events_test,params=Non
         for i in range(y_test_aux.shape[0]):
             y_test[i]=1  if any (y_test_aux[i]==1) else 0
     
-        model = keras.models.load_model(os.path.join('optimized_models','CNN2D_1_Ch8_W60_Ts40_OgModel'))
+        model = keras.models.load_model(os.path.join(OPTIMIZED_MODELS_DIR,'CNN2D_1_Ch8_W60_Ts40_OgModel'))
         # If no parameters are provided, 20 epochs and 32 as training batch will be used
         if params==None:
             epochs=20
